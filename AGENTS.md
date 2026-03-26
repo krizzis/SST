@@ -620,3 +620,29 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 - Collaborate, don't dictate
 
 ---
+---
+
+# Variables to Replace Before Use
+
+- `{{project_name}}` = [Your project name, e.g., "payment-api" or "data-pipeline"]
+
+---
+
+# Alternate Entry Modes (optional)
+
+Use these smaller prompts only when specifically requested:
+
+**Status-only session:**
+```
+Load docs in SSOT order (handoff → scope → design → tracker). Produce only an Opening Brief. Report any gaps/conflicts and suggest minimal actions to restore continuity. No code changes.
+```
+
+**Review-only session:**
+```
+Load docs in SSOT order. Review latest PR diff against acceptance criteria (tracker.md) and quality gates (methodology.md §§6-10). Provide pass/fail verdict with specific issues and fixes. No new code.
+```
+
+**Investigation/Spike session:**
+```
+Load docs in SSOT order. Formulate hypotheses for [problem]. Design minimal experiments with success metrics. Provide commands and expected evidence. Document findings in handoff.md. No production code changes unless trivial.
+```
