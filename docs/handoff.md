@@ -1,47 +1,45 @@
 # handoff.md
 
 ## Context Snapshot
-- SceneStateTracker's canonical scene-patch contract now includes `action` and `interaction` in addition to `location`, `emotion`, `pose`, `outfit`, and `summary`.
-- Deterministic normalization now covers semantic equivalents for location, emotion, pose, action, and interaction, plus NSFW-relevant outfit states such as `nude` and `topless`.
-- Stable character-card appearance facts and optional LoRA tags are now explicitly excluded from mutable scene state and reserved for later prompt-generation work sourced from the active SillyTavern character card.
-- The prompt-generation direction is now explicit: emit deterministic Danbooru-style tags for native image workflows, including NSFW-safe outfit/action/interaction tagging when present.
-- The scene-state store still validates patches before commit and preserves the previous valid scene on rejection.
-- T-002 remains complete after the schema correction; T-003 is still the next implementation slice.
+- SceneStateTracker still has T-001 and T-002 complete, and T-003 remains the active next implementation slice.
+- This session was status-only and focused on reducing host-integration uncertainty rather than writing extension code.
+- Real SillyTavern host research is now grounded in the local reference repo at `E:\AI_Tools\SillyTavern`, which is documented as read-only unless directly approved otherwise.
+- Verified host hooks for T-003 now include `CHAT_CHANGED`, `USER_MESSAGE_RENDERED`, and `CHARACTER_MESSAGE_RENDERED` from `public/scripts/events.js`.
+- Verified runtime state available to the adapter includes `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` from `public/script.js`.
+- The current recommended T-003 approach is to trigger on `CHARACTER_MESSAGE_RENDERED`, then derive the latest valid user + character pair from the current `chat` snapshot instead of trusting event payloads alone.
+- Group-chat scoping is the main remaining host-behavior uncertainty and should be validated conservatively during implementation.
 
 ## Active Task(s)
 - T-003: Build turn-pair collector and update trigger flow - Acceptance: latest complete user + character turn pair is captured correctly; processing stays scoped to the active tracked character and chat; duplicate/stale events do not double-process; overlapping work is coalesced or rejected safely; integration-level validation proves representative chat-order correctness.
 
 ## Decisions Made
-- Keep stable appearance facts and optional LoRA tags outside mutable scene state; source them from the active SillyTavern character card during prompt generation (link: docs/design.md Section 2.1, Section 8.4)
-- Normalize image payload output to deterministic Danbooru-style tags rather than prose, including explicit NSFW-relevant outfit/action/interaction tags when present (link: docs/design.md Section 1.2, Section 8.5)
-- Extend the mutable scene-state contract with `action` and `interaction` because those are turn-variant scene facts needed for prompt generation (link: docs/design.md Section 2.1, Section 4.2)
+- The local SillyTavern codebase at `E:\AI_Tools\SillyTavern` is an external read-only integration reference; do not modify files there without direct human approval (link: docs/scope.md Constraints & Assumptions, docs/design.md Section 3.2)
+- T-003 should use `CHARACTER_MESSAGE_RENDERED` as the primary reply-ready trigger and `CHAT_CHANGED` to reset per-chat collector state (link: docs/design.md Section 3.2)
+- The adapter should re-read current runtime state from `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` rather than relying only on event payload arguments (link: docs/design.md Section 3.2)
 
 ## Changes Since Last Session
-- src/core/schema.js (+updated): Added canonical `action` and `interaction` fields and clarified that appearance / LoRA metadata are excluded from mutable scene state
-- src/core/normalizers.js (+updated): Added deterministic normalization for `action`, `interaction`, and NSFW-relevant outfit states
-- src/core/extraction-engine.js (+updated): Kept placeholder extraction aligned with the expanded canonical scene-patch contract
-- tests/unit/schema.test.js (+updated): Added validation coverage for `action` and `interaction`
-- tests/unit/normalizers.test.js (+updated): Added canonicalization coverage for `action`, `interaction`, and NSFW outfit normalization
-- docs/scope.md (+updated): Added character-card appearance / LoRA prompt sourcing, Danbooru normalization, and NSFW prompt requirements
-- docs/design.md (+updated): Added architectural boundaries for mutable scene state vs. card metadata and documented deterministic Danbooru-tag payload generation
-- docs/tracker.md (+updated): Refined T-002/T-004/T-008/T-011 acceptance criteria to reflect the corrected prompt-model boundary
-- docs/handoff.md (+updated): Recorded the schema correction and next-session starting point
+- docs/scope.md (+updated): Documented the local SillyTavern host path and explicit no-modification rule without direct approval
+- docs/design.md (+updated): Added verified SillyTavern host-hook and runtime-state guidance for the host adapter layer
+- docs/tracker.md (+updated): Recorded pre-implementation T-003 host research evidence and moved task progress to investigation-in-progress
+- docs/todo.md (+updated): Reframed the next session around implementing T-003 from verified host behavior
+- docs/handoff.md (+updated): Captured this session's confirmed host findings and next-step implementation direction
 
 ## Validation & Evidence
-- Unit: 12/12 passing via `node --test`
-- Coverage: 98.51% lines, 92.04% branches, 100.00% functions via `node --test --experimental-test-coverage`
-- Module coverage highlights: `src/core/schema.js` 98.44% lines / 97.73% branches; `src/core/normalizers.js` 97.34% lines / 80.56% branches; `src/core/scene-state-store.js` 100% lines / 100% branches
+- No repository tests were run in this status-only session
+- Read-only inspection of `E:\AI_Tools\SillyTavern\public\scripts\events.js` confirmed `CHAT_CHANGED`, `USER_MESSAGE_RENDERED`, and `CHARACTER_MESSAGE_RENDERED`
+- Read-only inspection of `E:\AI_Tools\SillyTavern\public\script.js` confirmed `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` are exported for adapter reads
+- Read-only inspection of `E:\AI_Tools\SillyTavern\public\script.js` confirmed `CHARACTER_MESSAGE_RENDERED` is emitted after character messages are added/rendered, and `USER_MESSAGE_RENDERED` is emitted after user messages are added/rendered
+- Read-only inspection of `E:\AI_Tools\SillyTavern\public\scripts\extensions\quick-reply\index.js` confirmed built-in extensions already use `CHARACTER_MESSAGE_RENDERED` and `CHAT_CHANGED` as practical lifecycle hooks
 
 ## Risks & Unknowns
-- SillyTavern extension APIs for chat event capture, character-card metadata access, background control, and native image-pipeline handoff are still only partially confirmed - owner: Human operator + AI assistant - review: 2026-03-29
-- The current automated harness covers pure modules only; integration coverage for real host event/order behavior and real card metadata access is still pending T-003/T-008/T-010 - owner: Human operator + AI assistant - review: 2026-03-30
-- Card-level appearance and LoRA field conventions may vary across SillyTavern cards, so T-008 will need a conservative parsing strategy with fallbacks - owner: Human operator + AI assistant - review: 2026-04-01
+- Group-chat message identity and tracked-character scoping still need a conservative implementation rule validated against real message fields - owner: Human operator + AI assistant - review: 2026-03-28
+- Integration coverage for duplicate/stale/coalesced event handling is still pending T-003 implementation - owner: Human operator + AI assistant - review: 2026-03-28
+- Character-card appearance and optional LoRA field conventions still vary across cards and remain a later T-008 concern - owner: Human operator + AI assistant - review: 2026-04-01
 
 ## Next Steps
-1. Rerun unit tests and coverage after the schema correction to refresh T-002 evidence.
-2. Implement T-003 by wiring the turn-pair collector to real or realistically mocked SillyTavern chat-event inputs and stale-event guards.
-3. During T-008 planning, confirm where appearance and optional LoRA tags live in the active character card and define the Danbooru-tag serialization order.
+1. Implement `src/adapters/sillytavern-chat.js` around the verified SillyTavern exports and event hooks.
+2. Implement `src/core/turn-pair-collector.js` to derive the latest valid pair from `chat` and guard against duplicate/stale/overlapping processing.
+3. Add tests for T-003 event-order correctness and conservative group-chat scoping.
 
 ## Status Summary
-- [v] 100% - T-002 complete with corrected schema boundaries; T-003 is next
-
+- [~] 15% - T-003 is now investigation-backed and ready for the first implementation pass

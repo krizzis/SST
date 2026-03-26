@@ -41,7 +41,7 @@ The extension should make scene continuity easier to maintain during roleplay, a
 - Prompt determinism: identical character-card appearance, LoRA metadata, and scene-state inputs produce identical Danbooru-tag prompt output in >= 99% of test runs.
 - Background update accuracy: >= 90% of validated location changes trigger the intended mapped background in acceptance testing.
 - Recovery behavior: after invalid extraction output or pipeline error, the previous valid scene state remains intact in 100% of tested cases.
-- Changed-lines test coverage: >= 80% on merged work, per methodology.md §7.
+- Changed-lines test coverage: >= 80% on merged work, per methodology.md Section 7.
 
 ---
 
@@ -78,9 +78,10 @@ The extension should make scene continuity easier to maintain during roleplay, a
 - The initial release targets one active tracked character per chat session to reduce ambiguity in extraction and UI behavior.
 - The mutable scene-state schema intentionally excludes stable appearance and LoRA metadata; those come from the active SillyTavern character card at prompt-generation time.
 - The extracted scene state must be resilient to malformed or incomplete model output; the extension cannot assume perfect LLM formatting.
-- Secrets for third-party tools must remain outside committed code per methodology.md §8.
+- Secrets for third-party tools must remain outside committed code per methodology.md Section 8.
 - The extension should fail safely: if extraction fails, it should preserve the previous valid state and surface a reason rather than writing corrupt state.
 - Host runtime details and exact supported SillyTavern version are not yet pinned in the repository and will need confirmation during implementation.
+- The local SillyTavern reference code at `E:\AI_Tools\SillyTavern` may be inspected for integration research, but no files under that path may be modified without direct human approval.
 
 ---
 

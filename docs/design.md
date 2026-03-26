@@ -238,6 +238,15 @@ project-root/
 **Host Adapter Layer:**
 
 Purpose: Isolate SillyTavern-specific APIs from core logic.
+Reference boundary: The local SillyTavern code at `E:\AI_Tools\SillyTavern` is an external read-only reference for integration research. Do not modify files under that path without direct human approval.
+
+Verified integration baseline for T-003:
+- Listen for `event_types.CHARACTER_MESSAGE_RENDERED` as the primary "character reply is ready" signal.
+- Use `event_types.CHAT_CHANGED` to reset per-chat collector state when the active chat changes.
+- Read current runtime state from exported SillyTavern values: `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()`.
+- Prefer deriving the latest valid user + character pair from the current `chat` snapshot rather than trusting event payloads alone.
+- Treat message array index / `mesid` as the practical message identifier for pairing and deduplication.
+- Group-chat character scoping still needs a conservative rule based on actual message fields and must be validated during T-003 implementation.
 
 Responsibilities:
 - [v] Read current chat/session context, message data, and active-character card metadata.

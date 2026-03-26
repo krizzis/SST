@@ -25,7 +25,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-003 - [feature] Build turn-pair collector and update trigger flow
 - Owner: Human operator + AI assistant
-- Status: [ ] 0% | Dates: planned start 2026-03-30, expected by 2026-04-01
+- Status: [~] 15% | Dates: started 2026-03-27, expected by 2026-04-01
 - Scope: scope.md In Scope, Constraints & Assumptions
 - Design: design.md Section 1.2, Section 3.1, Section 3.2, Section 8.3
 - Acceptance criteria:
@@ -34,9 +34,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - Duplicate or stale chat events do not trigger duplicate processing for the same turn pair
   - Overlapping processing is coalesced or rejected safely per design.md Section 5.3
   - Integration-level validation proves turn-pair capture order is correct for representative chat flows
-- Evidence: Will be added when started
+- Evidence: Status-only session verified real SillyTavern host hooks in `E:\AI_Tools\SillyTavern`; `public/scripts/events.js` defines `CHAT_CHANGED`, `USER_MESSAGE_RENDERED`, and `CHARACTER_MESSAGE_RENDERED`, and `public/script.js` emits `CHARACTER_MESSAGE_RENDERED` after message render while exporting `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` for adapter reads
 - Dependencies: T-001
-- Notes: This task should not yet perform full scene extraction; it establishes the event boundary
+- Notes: This task should not yet perform full scene extraction; it establishes the event boundary. Verified next-step design direction: trigger on `CHARACTER_MESSAGE_RENDERED`, then derive the latest valid pair from the current `chat` snapshot.
 
 ---
 
