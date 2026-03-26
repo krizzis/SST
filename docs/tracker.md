@@ -1,7 +1,7 @@
 # tracker.md
 
-**Version:** 1.0  
-**Last updated:** 2026-03-26  
+**Version:** 1.2  
+**Last updated:** 2026-03-27  
 **Status:** Active task tracking - single source of truth for work items
 
 ---
@@ -23,29 +23,6 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## Active Tasks
 
-None at the moment. T-002 is the next task to begin.
-
----
-
-## Backlog (Not Started)
-
-## T-002 - [feature] Define scene-state schema and normalization rules
-- Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-03-28, expected by 2026-03-30
-- Scope: scope.md § Goals, § In Scope, § Risks (initial)
-- Design: design.md §2.1, §3.1, §4.2, §8.1
-- Acceptance criteria:
-  - Canonical schema for scene state is defined, including at minimum outfit, pose, emotion, and location
-  - Normalization rules exist for location keys and other enum-like fields
-  - Invalid or partial patches can be rejected without corrupting the prior valid state
-  - Unit tests prove identical semantic inputs normalize to identical canonical values
-  - Schema and normalization rules are documented in code comments or module-level docs where non-obvious
-- Evidence: Will be added when started
-- Dependencies: T-001
-- Notes: This task is the contract that downstream storage, background sync, and image payload generation depend on
-
----
-
 ## T-003 - [feature] Build turn-pair collector and update trigger flow
 - Owner: Human operator + AI assistant
 - Status: ? 0% | Dates: planned start 2026-03-30, expected by 2026-04-01
@@ -63,17 +40,19 @@ None at the moment. T-002 is the next task to begin.
 
 ---
 
+## Backlog (Not Started)
+
 ## T-004 - [feature] Implement extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
 - Status: ? 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
 - Scope: scope.md § Goals, § Success Metrics (SLOs)
 - Design: design.md §1.2, §2.1, §2.2, §4.2, §8.2
 - Acceptance criteria:
-  - The extraction engine accepts a turn pair and returns a structured scene patch in the project schema
+  - The extraction engine accepts a turn pair and returns a structured scene patch in the project schema, including action and interaction where present
   - Validation failures produce structured error results and retain the last known good scene state
   - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
   - Logs distinguish extraction, validation, and commit-stage failures
-  - Tests cover happy-path extraction, malformed output handling, and rejected patch behavior
+  - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
 - Evidence: Will be added when started
 - Dependencies: T-002, T-003
 - Notes: The implementation may use a prompt-based extractor, but its output contract must remain deterministic
@@ -138,8 +117,9 @@ None at the moment. T-002 is the next task to begin.
 - Design: design.md §1.2, §2.1, §2.3, §3.2, §10.1
 - Acceptance criteria:
   - Current committed scene state can be serialized into a deterministic payload for the native SillyTavern image workflow
-  - Identical scene-state inputs produce identical serialized output in tests
-  - Payload generation does not require re-reading chat history
+  - Prompt generation merges scene state with stable appearance facts and optional LoRA tags sourced from the active SillyTavern character card
+  - Identical scene-state inputs and card metadata produce identical serialized Danbooru-style output in tests
+  - Payload generation handles NSFW-relevant outfit, action, and interaction tags without requiring re-reading chat history
   - Adapter errors are surfaced through structured logs/debug output without breaking chat flow
   - Manual validation confirms the emitted payload can be consumed by the targeted native image pipeline path
 - Evidence: Will be added when started
@@ -189,7 +169,7 @@ None at the moment. T-002 is the next task to begin.
 - Design: design.md §7.1, §7.2, §10.1
 - Acceptance criteria:
   - Installation instructions exist for loading the extension into SillyTavern
-  - Configuration guidance explains active character selection, background mappings, and image payload usage
+  - Configuration guidance explains active character selection, background mappings, character-card appearance / LoRA sourcing, and image payload usage
   - A validation checklist exists for scene updates, background sync, and image payload behavior
   - Known limitations and non-goals are documented clearly for users
   - Documentation matches the actual implemented settings and runtime behavior
@@ -224,6 +204,28 @@ No blocked tasks at the moment.
 
 ## Completed Tasks
 
+## T-002 - [feature] Define scene-state schema and normalization rules
+- Owner: Human operator + AI assistant
+- Status: ? 100% | Dates: started 2026-03-26, completed 2026-03-27, last touched 2026-03-27
+- Scope: scope.md § Goals, § In Scope, § Risks (initial)
+- Design: design.md §2.1, §3.1, §4.2, §8.1
+- Acceptance criteria met:
+  - Canonical schema for scene state is defined, including `outfit`, `pose`, `emotion`, `location`, `action`, `interaction`, and `summary`
+  - Normalization rules canonicalize semantic equivalents for location keys and other enum-like fields
+  - Invalid or partial patches are rejected without corrupting the prior valid state
+  - Unit tests prove identical semantic inputs normalize to identical canonical values, including NSFW-relevant action / interaction / outfit states
+  - Non-obvious schema and normalization behavior is documented in code comments
+- Evidence:
+  - `src/core/schema.js` defines the canonical patch contract and explicitly excludes stable appearance / LoRA metadata from mutable scene state
+  - `src/core/normalizers.js` normalizes synonym-based semantic equivalents, NSFW-relevant outfit states, and deterministic action / interaction keys
+  - `src/core/scene-state-store.js` rejects invalid patches before commit and preserves prior valid scene state
+  - `node --test` -> 12/12 passing
+  - `node --test --experimental-test-coverage` -> 98.51% lines, 92.04% branches, 100.00% functions overall
+- Dependencies: T-001
+- Notes: Prompt-generation requirements for card appearance, LoRA tags, and Danbooru output are intentionally deferred to T-008 rather than stored in scene state
+
+---
+
 ## T-001 - [feature] Scaffold extension foundation
 - Owner: Human operator + AI assistant
 - Status: ? 100% | Dates: started 2026-03-26, completed 2026-03-26, last touched 2026-03-26
@@ -241,7 +243,7 @@ No blocked tasks at the moment.
   - Recursive settings reload removed from `index.js`, resolving the post-reload panel disappearance
   - Manual validation in local SillyTavern confirmed settings panel visibility, startup success, and persistence across reload
 - Dependencies: None
-- Notes: T-002 is now unblocked
+- Notes: T-002 is complete, and T-003 is now unblocked
 
 ---
 
@@ -256,6 +258,9 @@ No blocked tasks at the moment.
 
 | Date | Changes | Author |
 |------|---------|--------|
+| 2026-03-27 | Updated schema/task docs for action + interaction scene fields and card-sourced appearance / LoRA prompt generation | Codex |
+| 2026-03-26 | Marked T-002 complete with automated validation evidence and moved T-003 into active focus | Codex |
 | 2026-03-26 | Marked T-001 complete with local SillyTavern validation evidence | Codex |
 | 2026-03-26 | Updated T-001 with scaffold progress and pending validation evidence | Codex |
 | 2026-03-26 | Initial tracker created with implementation backlog for SceneStateTracker | Codex |
+

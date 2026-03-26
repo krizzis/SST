@@ -1,60 +1,47 @@
 # handoff.md
 
 ## Context Snapshot
-- SceneStateTracker now has a working first-pass extension scaffold in place, including `manifest.json`, `index.js`, `style.css`, `settings.html`, and the `src/` module tree described in design.md §3.1.
-- The extension now loads successfully in a real SillyTavern user-extension install, renders its settings/debug panel, and persists settings across reloads.
-- T-001 is complete; the next implementation slice is T-002 for schema and normalization rules.
-- The main remaining delivery risks are unconfirmed chat/background/image host APIs and the lack of an automated test harness.
-- The branch containing the implemented scaffold and validation fixes is `codex/scene-state-tracker-scaffold`.
+- SceneStateTracker's canonical scene-patch contract now includes `action` and `interaction` in addition to `location`, `emotion`, `pose`, `outfit`, and `summary`.
+- Deterministic normalization now covers semantic equivalents for location, emotion, pose, action, and interaction, plus NSFW-relevant outfit states such as `nude` and `topless`.
+- Stable character-card appearance facts and optional LoRA tags are now explicitly excluded from mutable scene state and reserved for later prompt-generation work sourced from the active SillyTavern character card.
+- The prompt-generation direction is now explicit: emit deterministic Danbooru-style tags for native image workflows, including NSFW-safe outfit/action/interaction tagging when present.
+- The scene-state store still validates patches before commit and preserves the previous valid scene on rejection.
+- T-002 remains complete after the schema correction; T-003 is still the next implementation slice.
 
 ## Active Task(s)
-- T-002: Define scene-state schema and normalization rules - Acceptance: canonical schema for outfit, pose, emotion, and location exists; normalization rules canonicalize semantic equivalents; invalid patches are rejected safely; unit tests prove deterministic normalization; non-obvious schema/normalization behavior is documented in code.
+- T-003: Build turn-pair collector and update trigger flow — Acceptance: latest complete user + character turn pair is captured correctly; processing stays scoped to the active tracked character and chat; duplicate/stale events do not double-process; overlapping work is coalesced or rejected safely; integration-level validation proves representative chat-order correctness.
 
 ## Decisions Made
-- Track a single active character per chat for the initial release (link: design.md §8.1)
-- Use a validated scene-state store as the single source of truth for UI, background updates, and image payload generation (link: design.md §8.2)
-- Process only the latest user + character turn pair instead of reanalyzing full chat history on every update (link: design.md §8.3)
-- Use `third-party/SST` as the template-loading extension name for this SillyTavern install while keeping `SST` as the local settings key and DOM-id prefix
-- Do not call SillyTavern's global `loadExtensionSettings(...)` from inside the extension bootstrap; initialize directly from `extension_settings`
+- Keep stable appearance facts and optional LoRA tags outside mutable scene state; source them from the active SillyTavern character card during prompt generation (link: docs/design.md §2.1, §8.4)
+- Normalize image payload output to deterministic Danbooru-style tags rather than prose, including explicit NSFW-relevant outfit/action/interaction tags when present (link: docs/design.md §1.2, §8.5)
+- Extend the mutable scene-state contract with `action` and `interaction` because those are turn-variant scene facts needed for prompt generation (link: docs/design.md §2.1, §4.2)
 
 ## Changes Since Last Session
-- manifest.json (+10/-0): Added extension manifest for SceneStateTracker runtime packaging
-- index.js (+100/-4): Added bootstrap lifecycle wiring and later fixed template path plus recursive reload behavior
-- settings.html (+34/-0): Added base settings UI and bootstrap debug panel markup
-- style.css (+36/-0): Added initial styles for settings and debug surface
-- src/core/scene-state-store.js (+88/-0): Added canonical state store skeleton with history, metrics, and rejection handling
-- src/core/turn-pair-collector.js (+41/-0): Added turn-pair orchestration skeleton for later chat integration
-- src/core/extraction-engine.js (+34/-0): Added placeholder extraction flow with normalization and validation hooks
-- src/core/normalizers.js (+16/-0): Added initial string normalization helpers
-- src/core/schema.js (+20/-0): Added initial scene-patch validation helper
-- src/adapters/sillytavern-chat.js (+16/-0): Added host chat adapter placeholder
-- src/adapters/background-adapter.js (+12/-0): Added background adapter placeholder
-- src/adapters/image-payload-adapter.js (+12/-0): Added image payload adapter placeholder
-- src/ui/settings-controller.js (+35/-0): Added settings defaults, namespace initialization, UI binding logic, and third-party template/settings split
-- src/ui/debug-panel.js (+24/-0): Added debug-panel rendering helper
-- src/utils/logger.js (+50/-0): Added structured logger helper with debug gating
-- src/utils/diff.js (+20/-0): Added shallow scene diff helper for store commits
-- tests/unit/.gitkeep (+1/-0): Added unit-test directory scaffold
-- tests/integration/.gitkeep (+1/-0): Added integration-test directory scaffold
-- docs/tracker.md (+updated): Marked T-001 complete and moved T-002 into active focus
-- docs/handoff.md (+updated): Recorded validation outcome and next-session starting point
+- src/core/schema.js (+updated): Added canonical `action` and `interaction` fields and clarified that appearance / LoRA metadata are excluded from mutable scene state
+- src/core/normalizers.js (+updated): Added deterministic normalization for `action`, `interaction`, and NSFW-relevant outfit states
+- src/core/extraction-engine.js (+updated): Kept placeholder extraction aligned with the expanded canonical scene-patch contract
+- tests/unit/schema.test.js (+updated): Added validation coverage for `action` and `interaction`
+- tests/unit/normalizers.test.js (+updated): Added canonicalization coverage for `action`, `interaction`, and NSFW outfit normalization
+- docs/scope.md (+updated): Added character-card appearance / LoRA prompt sourcing, Danbooru normalization, and NSFW prompt requirements
+- docs/design.md (+updated): Added architectural boundaries for mutable scene state vs. card metadata and documented deterministic Danbooru-tag payload generation
+- docs/tracker.md (+updated): Refined T-002/T-004/T-008/T-011 acceptance criteria to reflect the corrected prompt-model boundary
+- docs/handoff.md (+updated): Recorded the schema correction and next-session starting point
 
 ## Validation & Evidence
-- Manual SillyTavern validation: passed in `E:\AI_Tools\SillyTavern\data\default-user\extensions\SST`
-- Startup evidence: extension loads without blocking startup errors and settings panel renders
-- Persistence evidence: saved `SST` settings in `E:\AI_Tools\SillyTavern\data\default-user\settings.json` survive reload, including `debug` and `activeCharacter`
-- Routing evidence: template loading works through the third-party extension path using `third-party/SST`
-- Automated validation: not run yet; no test/build harness is configured in the repo
+- Unit: 12/12 passing via `node --test`
+- Coverage: 98.51% lines, 92.04% branches, 100.00% functions via `node --test --experimental-test-coverage`
+- Module coverage highlights: `src/core/schema.js` 98.44% lines / 97.73% branches; `src/core/normalizers.js` 97.34% lines / 80.56% branches; `src/core/scene-state-store.js` 100% lines / 100% branches
 
 ## Risks & Unknowns
-- SillyTavern extension APIs for chat event capture, background control, and native image-pipeline handoff are still only partially confirmed - owner: Human operator + AI assistant - review: 2026-03-28
-- Test tooling for the extension repo is not yet selected, so automated validation strategy is still pending - owner: Human operator + AI assistant - review: 2026-03-30
-- The placeholder chat/background/image adapters still need real host integration validation before T-003, T-007, and T-008 - owner: Human operator + AI assistant - review: 2026-04-01
+- SillyTavern extension APIs for chat event capture, character-card metadata access, background control, and native image-pipeline handoff are still only partially confirmed — owner: Human operator + AI assistant — review: 2026-03-29
+- The current automated harness covers pure modules only; integration coverage for real host event/order behavior and real card metadata access is still pending T-003/T-008/T-010 — owner: Human operator + AI assistant — review: 2026-03-30
+- Card-level appearance and LoRA field conventions may vary across SillyTavern cards, so T-008 will need a conservative parsing strategy with fallbacks — owner: Human operator + AI assistant — review: 2026-04-01
 
 ## Next Steps
-1. Start T-002 by defining the canonical scene-state schema and normalization rules in `src/core/schema.js` and `src/core/normalizers.js`.
-2. Add unit tests for deterministic normalization and invalid-patch rejection as soon as the schema logic is expanded.
-3. Confirm the specific SillyTavern chat-event and image-pipeline hooks needed for T-003 and T-008.
+1. Rerun unit tests and coverage after the schema correction to refresh T-002 evidence.
+2. Implement T-003 by wiring the turn-pair collector to real or realistically mocked SillyTavern chat-event inputs and stale-event guards.
+3. During T-008 planning, confirm where appearance and optional LoRA tags live in the active character card and define the Danbooru-tag serialization order.
 
 ## Status Summary
-- ? 100% - T-001 scaffold and manual host validation are complete; T-002 is next
+- ? 100% — T-002 complete with corrected schema boundaries; T-003 is next
+

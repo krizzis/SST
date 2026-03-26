@@ -1,3 +1,4 @@
+import { validateScenePatch } from '../core/schema.js';
 import { diffSceneState } from '../utils/diff.js';
 
 const DEFAULT_STATE = Object.freeze({
@@ -24,6 +25,19 @@ export function createSceneStateStore({ logger }) {
         subscribers.forEach((subscriber) => subscriber(state));
     }
 
+    function recordRejection(error) {
+        state = {
+            ...state,
+            lastError: error,
+            metrics: {
+                ...state.metrics,
+                rejections: state.metrics.rejections + 1,
+            },
+        };
+        logger.warn('scene-state-rejected', error);
+        notify();
+    }
+
     return {
         getSnapshot() {
             return cloneState(state);
@@ -38,6 +52,18 @@ export function createSceneStateStore({ logger }) {
         },
 
         commitScenePatch(patch, metadata = {}) {
+            const validation = validateScenePatch(patch);
+            if (!validation.ok) {
+                const error = {
+                    ok: false,
+                    stage: 'validation',
+                    reason: validation.reason,
+                    metadata,
+                };
+                recordRejection(error);
+                return error;
+            }
+
             const nextScene = {
                 ...(state.currentScene || {}),
                 ...patch,
@@ -82,16 +108,7 @@ export function createSceneStateStore({ logger }) {
         },
 
         rejectUpdate(error) {
-            state = {
-                ...state,
-                lastError: error,
-                metrics: {
-                    ...state.metrics,
-                    rejections: state.metrics.rejections + 1,
-                },
-            };
-            logger.warn('scene-state-rejected', error);
-            notify();
+            recordRejection(error);
         },
 
         subscribe(subscriber) {
