@@ -1,6 +1,5 @@
 import {
     extension_settings,
-    loadExtensionSettings,
     renderExtensionTemplateAsync,
 } from '../../../extensions.js';
 import { eventSource, event_types, saveSettingsDebounced } from '../../../../script.js';
@@ -87,8 +86,6 @@ async function onGenerationAfterCommands() {
 }
 
 jQuery(async () => {
-    await loadExtensionSettings(EXTENSION_NAME);
-
     settings = initializeSettings(extension_settings);
     logger = createLogger(EXTENSION_SETTINGS_KEY, { debugEnabled: settings.debug });
     sceneStateStore = createSceneStateStore({ logger });
