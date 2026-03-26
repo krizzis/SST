@@ -1,21 +1,16 @@
 import { normalizeScenePatch } from './normalizers.js';
-import { validateScenePatch } from './schema.js';
+import { createEmptyScenePatch, validateScenePatch } from './schema.js';
 
 export function createExtractionEngine({ logger }) {
     return {
         async extract(turnPair) {
             logger.debug('extract-scene-patch', { turnPairId: turnPair.id });
 
-            const draftPatch = {
-                location: '',
-                emotion: '',
-                pose: '',
-                outfit: '',
+            const draftPatch = normalizeScenePatch({
+                ...createEmptyScenePatch(),
                 summary: turnPair.characterMessage?.slice(0, 160) || '',
-            };
-
-            const patch = normalizeScenePatch(draftPatch);
-            const validation = validateScenePatch(patch);
+            });
+            const validation = validateScenePatch(draftPatch);
 
             if (!validation.ok) {
                 return {
@@ -27,7 +22,7 @@ export function createExtractionEngine({ logger }) {
 
             return {
                 ok: true,
-                patch,
+                patch: draftPatch,
             };
         },
     };

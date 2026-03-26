@@ -1,7 +1,7 @@
 # design.md
 
-**Version:** 1.0  
-**Last updated:** 2026-03-26  
+**Version:** 1.1  
+**Last updated:** 2026-03-27  
 **Status:** Living document - updated as architecture evolves  
 **Authority:** Technical decisions source of truth; must align with `scope.md`
 
@@ -19,7 +19,7 @@ This document defines the technical architecture, module boundaries, and impleme
 
 - SceneStateTracker is a client-side SillyTavern extension that derives structured scene state from the newest user + character turn pair.
 - It serves chat-session users who want current scene context, dynamic backgrounds, and prompt-ready image state for one active character.
-- It integrates with SillyTavern extension APIs, chat context/state access, background controls, and the native image-generation pipeline.
+- It integrates with SillyTavern extension APIs, chat context/state access, background controls, active-character card metadata, and the native image-generation pipeline.
 - It may rely on configured LLM-backed extraction prompts or host-provided generation helpers to turn chat text into structured attributes.
 - It does not perform multi-character orchestration, remote backend hosting, or direct ownership of external image-generation infrastructure.
 
@@ -61,12 +61,12 @@ Diagram:
        |      +-------------------+
        |                          |
        v                          v
-+--------------------+   +----------------------+
-| Background Adapter |   | Image Payload Adapter|
-| - location mapping |   | - deterministic      |
-| - background sync  |   |   prompt structure   |
-+--------------------+   +----------------------+
-              |
++--------------------+   +------------------------------+
+| Background Adapter |   | Image Payload Adapter        |
+| - location mapping |   | - merge appearance + LoRA    |
+| - background sync  |   | - Danbooru tag normalization |
++--------------------+   | - deterministic prompt order |
+              |          +------------------------------+
               v
 +---------------------------+
 | Settings + Debug UI       |
@@ -81,7 +81,7 @@ Component responsibilities:
 - **Extraction Engine**: Produces validated structured scene data from text inputs.
 - **Scene State Store**: Owns the canonical current scene state and protects against invalid overwrites.
 - **Background Adapter**: Maps normalized locations to backgrounds and applies changes only when state meaningfully changes.
-- **Image Payload Adapter**: Converts scene state into deterministic structured input for native image-generation workflows.
+- **Image Payload Adapter**: Combines scene state with stable character-card appearance facts and optional LoRA tags, then emits deterministic Danbooru-style prompt payloads.
 - **Settings + Debug UI**: Lets the user configure behavior and inspect the current state.
 
 ---
@@ -95,13 +95,13 @@ Component responsibilities:
 | UI | HTML/CSS + jQuery lifecycle hooks | Host-compatible | Aligns with documented SillyTavern extension conventions |
 | State serialization | JSON | Stable | Deterministic structured interchange for storage and image payloads |
 | Validation | Lightweight schema validation helpers | Project-defined | Prevents malformed extraction output from corrupting state |
-| Testing | TBD during implementation bootstrap | TBD | The repo does not yet define a test runner; selection must align with host constraints |
+| Testing | Node built-in test runner | Host-compatible | Gives the repo a zero-dependency unit-test baseline while the extension remains dependency-light |
 
 Constraints:
-- ✅ Use documented SillyTavern extension lifecycle, settings, and event patterns.
-- ✅ Keep the initial implementation dependency-light and understandable.
-- ❌ Avoid introducing a standalone backend service for first release.
-- ❌ Avoid opaque state mutations outside the scene-state store.
+- ? Use documented SillyTavern extension lifecycle, settings, and event patterns.
+- ? Keep the initial implementation dependency-light and understandable.
+- ? Avoid introducing a standalone backend service for first release.
+- ? Avoid opaque state mutations outside the scene-state store.
 
 ---
 
@@ -124,10 +124,10 @@ Constraints:
 - How we apply it: UI, background updates, and image payload generation all read from the scene-state store rather than recomputing from chat text.
 - Example: The background adapter never parses messages directly; it subscribes to validated store updates.
 
-**4. Minimal Host Coupling**
-- What it means: SillyTavern-specific APIs should be isolated so internal logic stays testable.
-- How we apply it: Wrap host interactions in adapter modules for chat access, backgrounds, and image workflow handoff.
-- Example: A `background-adapter` module translates normalized location keys into the actual host API calls.
+**4. Separate Stable Character Identity from Mutable Scene State**
+- What it means: Stable appearance facts and optional LoRA metadata should not be rewritten every turn.
+- How we apply it: Treat appearance and LoRA tags as card-sourced prompt inputs, while scene state stores only turn-variant fields such as location, pose, action, interaction, and outfit state.
+- Example: `long_hair` from the card remains stable even if the scene changes from `bedroom` to `forest_path`.
 
 **5. Explainable Automation**
 - What it means: Users should be able to inspect why the extension changed state.
@@ -172,16 +172,16 @@ Constraints:
 - **ERROR**: A committed workflow failed and user-visible behavior was skipped. Example: background adapter threw while applying a mapped background.
 - **WARN**: Recoverable problem or rejected update. Example: extraction output failed validation, prior state retained.
 - **INFO**: Significant state transition. Example: location changed from `tavern` to `forest_path`.
-- **DEBUG**: Detailed extraction inputs, normalization decisions, and adapter payloads when debug mode is enabled.
+- **DEBUG**: Detailed extraction inputs, normalization decisions, card-metadata resolution, and adapter payloads when debug mode is enabled.
 
 **Always log:**
 - Successful state commits with a concise diff summary.
 - Rejected scene updates with stage and reason.
-- Background-change decisions, including "no-op" skips when location is unchanged.
+- Background-change decisions, including `no-op` skips when location is unchanged.
 - Image payload generation events with the emitted field set, not the full sensitive prompt text unless debug is enabled.
 
 **Never log:**
-- Secrets or credentials, per methodology.md §8.
+- Secrets or credentials, per methodology.md �8.
 - Entire chat transcripts by default.
 - Full image prompts in standard mode if they may expose user-private context.
 
@@ -205,6 +205,7 @@ project-root/
 |   |   |-- turn-pair-collector.js    # Collects analyzable turn pairs
 |   |   |-- extraction-engine.js      # Orchestrates extraction flow
 |   |   |-- normalizers.js            # Canonicalization helpers
+|   |   |-- appearance-profile.js     # Character-card appearance / LoRA normalization
 |   |   `-- schema.js                 # Scene-state schema definitions
 |   |-- adapters/
 |   |   |-- sillytavern-chat.js       # Host chat/context wrapper
@@ -239,65 +240,54 @@ project-root/
 Purpose: Isolate SillyTavern-specific APIs from core logic.
 
 Responsibilities:
-- ✅ Read current chat/session context and message data.
-- ✅ Apply background updates and emit image payloads through host interfaces.
-- ✅ Translate host-specific events and payloads into project-internal shapes.
-- ❌ Contain business rules for scene inference.
-- ❌ Mutate canonical scene state directly.
-
-Code pattern:
-```js
-export function applyBackground(locationKey, mapping, hostApi) {
-  const background = mapping[locationKey];
-  if (!background) return { ok: false, reason: 'no-mapping' };
-  return hostApi.setBackground(background);
-}
-```
+- ? Read current chat/session context, message data, and active-character card metadata.
+- ? Apply background updates and emit image payloads through host interfaces.
+- ? Translate host-specific events and payloads into project-internal shapes.
+- ? Contain business rules for scene inference.
+- ? Mutate canonical scene state directly.
 
 **Core Logic Layer:**
 
 Purpose: Convert turn pairs into validated scene-state updates.
 
 Responsibilities:
-- ✅ Build extraction input from turn pairs.
-- ✅ Validate and normalize extracted data.
-- ✅ Decide whether to commit, reject, or partially merge state changes.
-- ❌ Call DOM APIs directly.
-- ❌ Depend on raw host event payload shapes outside adapter contracts.
-
-Code pattern:
-```js
-export function buildNextSceneState(previousState, extractedState) {
-  const normalized = normalizeSceneState(extractedState);
-  return {
-    ...previousState,
-    ...normalized,
-    updatedAt: Date.now(),
-  };
-}
-```
+- ? Build extraction input from turn pairs.
+- ? Validate and normalize extracted data.
+- ? Decide whether to commit, reject, or partially merge state changes.
+- ? Call DOM APIs directly.
+- ? Depend on raw host event payload shapes outside adapter contracts.
 
 **State Store Layer:**
 
 Purpose: Own the current valid scene state and notify dependents.
 
 Responsibilities:
-- ✅ Store current state, metadata, and recent update history.
-- ✅ Guard writes behind validation/commit rules.
-- ✅ Notify subscribers on committed changes.
-- ❌ Parse chat text itself.
-- ❌ Decide host-specific side effects.
+- ? Store current state, metadata, and recent update history.
+- ? Guard writes behind validation/commit rules.
+- ? Notify subscribers on committed changes.
+- ? Parse chat text itself.
+- ? Decide host-specific side effects.
+
+**Prompt Composition Layer:**
+
+Purpose: Build deterministic generation payloads from scene state plus stable card metadata.
+
+Responsibilities:
+- ? Read normalized scene state from the store.
+- ? Read stable appearance facts and optional LoRA tags from the active character card.
+- ? Normalize output into deterministic Danbooru-style tags, including NSFW outfit/action/interaction tags when present.
+- ? Rewrite scene state or treat stable appearance as per-turn mutable data.
 
 **UI Layer:**
 
 Purpose: Render settings and explain current extension behavior to the user.
 
 Responsibilities:
-- ✅ Bind settings to `extension_settings`.
-- ✅ Show current state, recent updates, and failure reasons.
-- ✅ Let the user configure active character, debug mode, and location mappings.
-- ❌ Reimplement extraction logic.
-- ❌ Store authoritative state outside the state store.
+- ? Bind settings to `extension_settings`.
+- ? Show current state, recent updates, and failure reasons.
+- ? Let the user configure active character, debug mode, and location mappings.
+- ? Reimplement extraction logic.
+- ? Store authoritative state outside the state store.
 
 ---
 
@@ -307,20 +297,20 @@ Responsibilities:
 - Purpose: Prove deterministic normalization, state merging, schema validation, and diff generation.
 - Scope: One pure module or function at a time.
 - Mocking: Mock host adapters and timestamps where needed.
-- Coverage target: >= 80% on changed lines per methodology.md §7, with higher focus on extraction/normalization paths.
-- Run: `[TBD after tooling bootstrap]`
+- Coverage target: >= 80% on changed lines per methodology.md �7, with higher focus on extraction/normalization paths.
+- Run: `node --test` and `node --test --experimental-test-coverage`
 
 **Integration Tests:**
 - Purpose: Prove end-to-end flow from turn-pair detection through committed state and adapter side effects.
 - Scope: Multiple modules together with mocked SillyTavern host APIs.
 - Environment: Headless or lightweight simulated host environment.
 - When to run: Before merge and for any adapter contract change.
-- Run: `[TBD after tooling bootstrap]`
+- Run: `[TBD after host adapter fixtures exist]`
 
 **E2E / Manual Validation:**
 - Purpose: Confirm the extension updates live chat state, backgrounds, and image payloads correctly in SillyTavern.
 - Scope: Real extension load in a dev instance.
-- Environment: Local SillyTavern session with known sample conversations and background mappings.
+- Environment: Local SillyTavern session with known sample conversations, character cards, and background mappings.
 - When to run: Milestone checkpoints and release candidates.
 - Run: Manual scripted checklist until automation exists.
 
@@ -351,24 +341,16 @@ Responsibilities:
 **Where:** Both at extraction boundaries and before state-store commits.
 
 **Validate:**
-- ✅ Turn-pair presence and role ordering.
-- ✅ Structured extraction output shape and required fields.
-- ✅ Enum-like normalized values such as pose/emotion/location categories where applicable.
-- ✅ User settings such as active character selection and location-background mappings.
+- ? Turn-pair presence and role ordering.
+- ? Structured extraction output shape and required fields.
+- ? Enum-like normalized values such as pose, emotion, location, action, and interaction categories where applicable.
+- ? User settings such as active character selection and location-background mappings.
+- ? Character-card appearance / LoRA metadata before prompt serialization.
 
 **Sanitize:**
 - Trim and normalize user-configured string values.
-- Canonicalize whitespace, casing, and synonyms before comparing or storing.
+- Canonicalize whitespace, casing, synonyms, and tag aliases before comparing or storing.
 - Reject unsafe or malformed background mapping values before host application.
-
-**Example:**
-```js
-function validateScenePatch(patch) {
-  if (!patch || typeof patch !== 'object') return false;
-  if (patch.location && typeof patch.location.key !== 'string') return false;
-  return true;
-}
-```
 
 ---
 
@@ -378,12 +360,13 @@ function validateScenePatch(patch) {
 - Storage: Local environment or host-managed settings only.
 - Access: Through environment variables or host configuration if future integrations require them.
 - Rotation: User-managed, dependent on integrated external tools.
-- Per methodology.md §8: Never commit secrets.
+- Per methodology.md �8: Never commit secrets.
 
 **Sensitive data:**
 - Chat content: Treat as potentially private; do not log full transcripts by default.
 - Logs: Redact or omit sensitive text unless explicit debug mode is enabled by the user.
 - Persisted state: Store only what is needed for current scene continuity and integrations.
+- NSFW prompt payloads: Treat as user-private output and avoid logging full prompts outside explicit debug mode.
 
 **Local storage:**
 - Use the minimum necessary persisted fields.
@@ -396,11 +379,12 @@ function validateScenePatch(patch) {
 ### 5.1 Processing Optimization
 
 **Patterns:**
-- ✅ Process only the newest complete user + character turn pair.
-- ✅ Skip no-op updates when normalized state has not materially changed.
-- ✅ Cache normalized mapping lookups for backgrounds where useful.
-- ❌ Re-scan the entire chat history for every new message.
-- ❌ Trigger repeated background/image updates if the committed state is unchanged.
+- ? Process only the newest complete user + character turn pair.
+- ? Skip no-op updates when normalized state has not materially changed.
+- ? Cache normalized mapping lookups for backgrounds where useful.
+- ? Cache stable character-card appearance / LoRA normalization while the active character is unchanged.
+- ? Re-scan the entire chat history for every new message.
+- ? Trigger repeated background/image updates if the committed state is unchanged.
 
 **Guideline:** Most work should be incremental and bounded to one fresh interaction cycle.
 
@@ -409,19 +393,22 @@ function validateScenePatch(patch) {
 ### 5.2 Caching Strategy
 
 **What to cache:**
-- ✅ The current committed scene state.
-- ✅ Recent scene-update history for debug inspection.
-- ✅ Normalized location-to-background mappings derived from settings.
-- ❌ Entire chat history snapshots unless specifically required for a future feature.
-- ❌ Invalid extraction outputs beyond short-lived debug history.
+- ? The current committed scene state.
+- ? Recent scene-update history for debug inspection.
+- ? Normalized location-to-background mappings derived from settings.
+- ? Stable normalized appearance / LoRA metadata for the active character.
+- ? Entire chat history snapshots unless specifically required for a future feature.
+- ? Invalid extraction outputs beyond short-lived debug history.
 
 **Cache layers:**
 1. In-memory store: Primary runtime state for current session.
 2. Session/local persistence: Optional recovery of latest valid state and settings across reloads.
+3. Character-card metadata cache: Rebuilt when the active character changes or card content changes.
 
 **TTL strategy:**
 - Current scene state: Valid until superseded by a newer committed update or session reset.
 - Debug history: Bounded list, not time-based, to avoid unbounded growth.
+- Character-card metadata cache: Valid until active character or card metadata changes.
 
 **Invalidation:**
 - Clear or rebuild derived caches when settings change.
@@ -460,6 +447,7 @@ function validateScenePatch(patch) {
 - Background update success/failure count.
 - Image payload generation success/failure count.
 - End-to-end processing latency per update.
+- Prompt normalization fallback count for appearance, LoRA, and Danbooru tag serialization.
 
 **Tools:** Local debug counters and logs initially; richer telemetry can be added later if needed.
 
@@ -493,8 +481,8 @@ function validateScenePatch(patch) {
 
 | Environment | Purpose | Deploy Trigger | Data |
 |-------------|---------|----------------|------|
-| **Local dev** | Build and iterate on extension behavior | Manual reload during development | Local user chats and test fixtures |
-| **Local validation** | Manual acceptance testing in SillyTavern | Before merge/release | Controlled sample chats and mappings |
+| **Local dev** | Build and iterate on extension behavior | Manual reload during development | Local user chats, character cards, and test fixtures |
+| **Local validation** | Manual acceptance testing in SillyTavern | Before merge/release | Controlled sample chats, mappings, and representative cards |
 | **Release package** | Distributed extension artifact | Tagged release/manual packaging | No bundled user data |
 
 **Config differences:**
@@ -505,7 +493,7 @@ function validateScenePatch(patch) {
 
 ### 7.2 Deployment Process
 
-**Pipeline steps (per methodology.md §9):**
+**Pipeline steps (per methodology.md �9):**
 1. Lint/format
 2. Unit tests with coverage
 3. Integration tests with mocked host APIs
@@ -533,16 +521,6 @@ The product concept could expand toward multi-character tracking, but the curren
 **Decision:**
 The initial architecture tracks exactly one active character per chat session and makes that selection explicit in settings/state.
 
-**Consequences:**
-- ✅ Simpler extraction logic and clearer UI semantics.
-- ✅ Easier debugging and deterministic downstream prompts.
-- ❌ Not sufficient for ensemble scenes.
-- ❌ May require a later migration path for multi-character support.
-
-**Alternatives Considered:**
-- **Track all characters at once**: Rejected for first release because ambiguity and UI complexity rise quickly.
-- **Infer active character automatically with no user control**: Rejected because silent mistakes would be harder to correct.
-
 ### 8.2 ADR-002: Use a Validated Scene-State Store as the Single Source of Truth
 
 **Date:** 2026-03-26  
@@ -553,16 +531,6 @@ Background updates and image payload generation both need the same authoritative
 
 **Decision:**
 All downstream behaviors read from a single validated scene-state store that only updates after extraction, validation, and normalization succeed.
-
-**Consequences:**
-- ✅ Consistent behavior across UI, backgrounds, and image generation.
-- ✅ Easier testability and rollback-on-failure behavior.
-- ❌ Requires disciplined module boundaries.
-- ❌ Adds some upfront structure before user-facing features appear.
-
-**Alternatives Considered:**
-- **Compute state separately inside each feature**: Rejected because it would create inconsistent outputs.
-- **Store only raw extraction text**: Rejected because it weakens determinism and validation.
 
 ### 8.3 ADR-003: Drive Side Effects from Turn-Pair Deltas, Not Full Chat Reanalysis
 
@@ -575,15 +543,37 @@ The extension needs to feel responsive during live chats. Reprocessing the full 
 **Decision:**
 The system analyzes only the newest user message plus the responding character message, then merges the resulting patch into the current scene state.
 
-**Consequences:**
-- ✅ Lower latency and simpler reasoning about each update.
-- ✅ Better fit for live background and image updates.
-- ❌ Can miss older context if the current turn pair is underspecified.
-- ❌ Requires careful merge rules and preservation of prior valid state.
+### 8.4 ADR-004: Keep Appearance and LoRA Metadata Outside Mutable Scene State
 
-**Alternatives Considered:**
-- **Reanalyze full recent transcript every turn**: Rejected for first release due to cost and instability.
-- **Manual state editing only**: Rejected because it does not meet automation goals.
+**Date:** 2026-03-27  
+**Status:** Accepted
+
+**Context:**
+Stable character-card appearance and optional LoRA tags are needed for image prompts, but they are not scene facts that should churn with every turn.
+
+**Decision:**
+Store only mutable scene facts in scene state. Resolve stable appearance facts and optional LoRA tags from the active SillyTavern character card during prompt generation.
+
+**Consequences:**
+- ? Clearer boundary between scene continuity and character identity.
+- ? Less risk of overwriting stable card data with noisy extraction output.
+- ? Prompt generation now depends on card metadata access being available.
+
+### 8.5 ADR-005: Normalize Prompt Output to Danbooru-Style Tags
+
+**Date:** 2026-03-27  
+**Status:** Accepted
+
+**Context:**
+Native image workflows consume tags more reliably than prose, and NSFW scenes require explicit canonical handling for outfit state, action, and interaction.
+
+**Decision:**
+Prompt generation should emit deterministic Danbooru-style tags in stable order, merging card appearance, optional LoRA tags, and normalized scene-state tags.
+
+**Consequences:**
+- ? More deterministic payloads for image workflows.
+- ? Cleaner support for NSFW prompts through explicit canonical tags.
+- ? Requires careful tag normalization and card-field parsing.
 
 ---
 
@@ -598,10 +588,10 @@ The system analyzes only the newest user message plus the responding character m
 - Settings keys: stable lowercase identifiers under the extension namespace
 
 **Language features:**
-- ✅ Use `const`/`let`, async/await, and small pure functions where possible.
-- ✅ Keep host interaction behind adapters.
-- ❌ Avoid hidden global state outside the extension settings/store.
-- ❌ Avoid mixing DOM manipulation with extraction/state logic in the same module.
+- ? Use `const`/`let`, async/await, and small pure functions where possible.
+- ? Keep host interaction behind adapters.
+- ? Avoid hidden global state outside the extension settings/store.
+- ? Avoid mixing DOM manipulation with extraction/state logic in the same module.
 
 **Formatting:**
 - Follow the repo's eventual formatter/linter once added.
@@ -612,10 +602,10 @@ The system analyzes only the newest user message plus the responding character m
 ### 9.2 Comments & Documentation
 
 **Comment when:**
-- ✅ Explaining why a normalization or merge rule exists.
-- ✅ Warning about host API quirks or lifecycle timing.
-- ✅ Documenting schema fields or side-effect sequencing.
-- ❌ Restating obvious code behavior.
+- ? Explaining why a normalization or merge rule exists.
+- ? Warning about host API quirks or lifecycle timing.
+- ? Documenting schema fields or side-effect sequencing.
+- ? Restating obvious code behavior.
 
 **Documentation format:**
 - Public module entrypoints: brief JSDoc where the contract is not obvious.
@@ -638,13 +628,6 @@ The system analyzes only the newest user message plus the responding character m
 - `test`: test additions or fixes
 - `refactor`: internal restructuring with no user-visible behavior change
 
-**Examples:**
-```text
-feat(scene): add validated scene state store
-feat(background): sync mapped backgrounds from location changes
-docs(scope): define project boundaries and milestones
-```
-
 ---
 
 ## 10. Extensibility & Future Work
@@ -659,11 +642,12 @@ docs(scope): define project boundaries and milestones
 
 **How to extend:**
 - Add new scene fields in `schema.js`, normalization rules in `normalizers.js`, and adapter serialization support in `image-payload-adapter.js`.
+- Add or refine card-metadata normalization in `appearance-profile.js` rather than bloating the mutable scene schema.
 - New host integrations should be added as adapter modules rather than mixed into core logic.
 
 **Planned extensions:**
 - Manual scene-state overrides from UI.
-- Field-level confidence scores or "unknown" handling.
+- Field-level confidence scores or `unknown` handling.
 - Multi-character support after the single-character path is stable.
 
 ---
@@ -686,6 +670,7 @@ docs(scope): define project boundaries and milestones
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2026-03-27 | 1.1 | Added appearance/LoRA prompt-source rules, Danbooru-tag prompt design, NSFW action/interaction guidance, and initial Node test-runner selection | Codex |
 | 2026-03-26 | 1.0 | Initial technical design for SceneStateTracker | Codex |
 
 ---

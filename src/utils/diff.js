@@ -1,3 +1,18 @@
+function serializeValue(value) {
+    if (Array.isArray(value)) {
+        return `[${value.map((entry) => serializeValue(entry)).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value)
+            .sort()
+            .map((key) => `${key}:${serializeValue(value[key])}`)
+            .join(',')}}`;
+    }
+
+    return JSON.stringify(value);
+}
+
 export function diffSceneState(previousState, nextState) {
     const previous = previousState || {};
     const next = nextState || {};
@@ -5,7 +20,7 @@ export function diffSceneState(previousState, nextState) {
     const delta = [];
 
     keys.forEach((key) => {
-        if (previous[key] === next[key]) {
+        if (serializeValue(previous[key]) === serializeValue(next[key])) {
             return;
         }
 
