@@ -1,0 +1,699 @@
+# design.md
+
+**Version:** 1.0  
+**Last updated:** 2026-03-26  
+**Status:** Living document - updated as architecture evolves  
+**Authority:** Technical decisions source of truth; must align with `scope.md`
+
+---
+
+## Purpose
+
+This document defines the technical architecture, module boundaries, and implementation rules for SceneStateTracker. It should be used during feature planning, implementation, and review to answer how the extension is built, where responsibilities live, and which tradeoffs have already been chosen.
+
+---
+
+## 1. Architecture Overview
+
+### 1.1 System Context
+
+- SceneStateTracker is a client-side SillyTavern extension that derives structured scene state from the newest user + character turn pair.
+- It serves chat-session users who want current scene context, dynamic backgrounds, and prompt-ready image state for one active character.
+- It integrates with SillyTavern extension APIs, chat context/state access, background controls, and the native image-generation pipeline.
+- It may rely on configured LLM-backed extraction prompts or host-provided generation helpers to turn chat text into structured attributes.
+- It does not perform multi-character orchestration, remote backend hosting, or direct ownership of external image-generation infrastructure.
+
+---
+
+### 1.2 High-Level Architecture
+
+Architecture style: Layered client-side extension with event-driven updates
+
+Diagram:
+```text
++---------------------------+
+| SillyTavern Chat Events   |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| Turn Pair Collector       |
+| - latest user message     |
+| - latest character reply  |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| Extraction Engine         |
+| - schema prompt/input     |
+| - parse/validate          |
+| - normalize values        |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| Scene State Store         |
+| - current valid state     |
+| - recent history          |
+| - session persistence     |
++------+------+-------------+
+       |      |
+       |      +-------------------+
+       |                          |
+       v                          v
++--------------------+   +----------------------+
+| Background Adapter |   | Image Payload Adapter|
+| - location mapping |   | - deterministic      |
+| - background sync  |   |   prompt structure   |
++--------------------+   +----------------------+
+              |
+              v
++---------------------------+
+| Settings + Debug UI       |
+| - active character        |
+| - mappings and toggles    |
+| - inspection panel        |
++---------------------------+
+```
+
+Component responsibilities:
+- **Turn Pair Collector**: Watches chat lifecycle and emits the newest analyzable user/character pair for the tracked character.
+- **Extraction Engine**: Produces validated structured scene data from text inputs.
+- **Scene State Store**: Owns the canonical current scene state and protects against invalid overwrites.
+- **Background Adapter**: Maps normalized locations to backgrounds and applies changes only when state meaningfully changes.
+- **Image Payload Adapter**: Converts scene state into deterministic structured input for native image-generation workflows.
+- **Settings + Debug UI**: Lets the user configure behavior and inspect the current state.
+
+---
+
+### 1.3 Technology Stack
+
+| Layer | Technology | Version | Rationale |
+|-------|-----------|---------|-----------|
+| Runtime | SillyTavern extension runtime | Host-defined | The extension must run inside the existing host environment |
+| Language | JavaScript (ES modules) | Host-compatible | Matches typical SillyTavern extension patterns and avoids extra build requirements initially |
+| UI | HTML/CSS + jQuery lifecycle hooks | Host-compatible | Aligns with documented SillyTavern extension conventions |
+| State serialization | JSON | Stable | Deterministic structured interchange for storage and image payloads |
+| Validation | Lightweight schema validation helpers | Project-defined | Prevents malformed extraction output from corrupting state |
+| Testing | TBD during implementation bootstrap | TBD | The repo does not yet define a test runner; selection must align with host constraints |
+
+Constraints:
+- ✅ Use documented SillyTavern extension lifecycle, settings, and event patterns.
+- ✅ Keep the initial implementation dependency-light and understandable.
+- ❌ Avoid introducing a standalone backend service for first release.
+- ❌ Avoid opaque state mutations outside the scene-state store.
+
+---
+
+## 2. Design Principles
+
+### 2.1 Core Principles
+
+**1. Deterministic Structured Output**
+- What it means: The same analyzed turn pair should produce the same normalized scene representation whenever possible.
+- How we apply it: Use a fixed schema, canonical field order, normalization tables, and explicit fallback handling.
+- Example: Location `"bed room"`, `"bedroom"`, and `"the bedroom"` normalize to the same canonical `location.key`.
+
+**2. Preserve Last Known Good State**
+- What it means: Bad extraction output must not destroy valid scene context.
+- How we apply it: Parse and validate proposed updates before committing them; on failure, keep the previous state and emit diagnostics.
+- Example: If emotion extraction returns malformed JSON, the current outfit/location remain unchanged.
+
+**3. Single Source of Truth**
+- What it means: Only one module owns the canonical current scene state.
+- How we apply it: UI, background updates, and image payload generation all read from the scene-state store rather than recomputing from chat text.
+- Example: The background adapter never parses messages directly; it subscribes to validated store updates.
+
+**4. Minimal Host Coupling**
+- What it means: SillyTavern-specific APIs should be isolated so internal logic stays testable.
+- How we apply it: Wrap host interactions in adapter modules for chat access, backgrounds, and image workflow handoff.
+- Example: A `background-adapter` module translates normalized location keys into the actual host API calls.
+
+**5. Explainable Automation**
+- What it means: Users should be able to inspect why the extension changed state.
+- How we apply it: Keep a recent history of extracted updates, normalized values, and failure reasons in debug UI/logs.
+- Example: A debug panel shows the last analyzed turn pair, proposed state diff, and final committed state.
+
+---
+
+### 2.2 Error Handling Strategy
+
+**Error types:**
+- **Operational**: Host API unavailable, image pipeline hook missing, parse failure from extraction output -> Strategy: log warning/error, keep prior valid scene state, surface status in debug UI, continue session.
+- **Validation**: Required fields missing, invalid enum/value shape, non-deterministic payload shape -> Strategy: reject update, record structured reason, preserve last known good state.
+- **Programmer**: Undefined module contract, impossible branch, unexpected null access -> Strategy: fail fast in development, log rich diagnostics, add regression tests before release.
+
+**Error response format:**
+```json
+{
+  "ok": false,
+  "stage": "extraction|validation|background|image-payload",
+  "reason": "human-readable summary",
+  "details": {
+    "chatId": "optional",
+    "characterId": "optional",
+    "turnId": "optional"
+  }
+}
+```
+
+**Never expose:**
+- Raw secrets, API tokens, or local file paths that do not help the user.
+- Unfiltered stack traces in user-facing UI.
+- Full prompt internals in normal-mode UI if they may reveal sensitive configuration.
+
+---
+
+### 2.3 Logging Strategy
+
+**Format:** Structured plain objects written through a single logger helper, with console output in development and optional debug UI surfacing.
+
+**Log levels:**
+- **ERROR**: A committed workflow failed and user-visible behavior was skipped. Example: background adapter threw while applying a mapped background.
+- **WARN**: Recoverable problem or rejected update. Example: extraction output failed validation, prior state retained.
+- **INFO**: Significant state transition. Example: location changed from `tavern` to `forest_path`.
+- **DEBUG**: Detailed extraction inputs, normalization decisions, and adapter payloads when debug mode is enabled.
+
+**Always log:**
+- Successful state commits with a concise diff summary.
+- Rejected scene updates with stage and reason.
+- Background-change decisions, including "no-op" skips when location is unchanged.
+- Image payload generation events with the emitted field set, not the full sensitive prompt text unless debug is enabled.
+
+**Never log:**
+- Secrets or credentials, per methodology.md §8.
+- Entire chat transcripts by default.
+- Full image prompts in standard mode if they may expose user-private context.
+
+**Correlation:** Each processed turn pair should carry a generated `updateId` plus chat and character identifiers where available.
+
+---
+
+## 3. Module Design
+
+### 3.1 Directory Structure
+
+```text
+project-root/
+|-- manifest.json              # Extension manifest
+|-- index.js                   # Extension entrypoint and lifecycle wiring
+|-- style.css                  # Extension styles
+|-- settings.html              # Settings and debug panel template
+|-- src/
+|   |-- core/
+|   |   |-- scene-state-store.js      # Canonical state owner
+|   |   |-- turn-pair-collector.js    # Collects analyzable turn pairs
+|   |   |-- extraction-engine.js      # Orchestrates extraction flow
+|   |   |-- normalizers.js            # Canonicalization helpers
+|   |   `-- schema.js                 # Scene-state schema definitions
+|   |-- adapters/
+|   |   |-- sillytavern-chat.js       # Host chat/context wrapper
+|   |   |-- background-adapter.js     # Host background sync wrapper
+|   |   `-- image-payload-adapter.js  # Native image pipeline wrapper
+|   |-- ui/
+|   |   |-- settings-controller.js    # Settings bindings
+|   |   `-- debug-panel.js            # State inspection UI
+|   `-- utils/
+|       |-- logger.js                 # Logging helper
+|       `-- diff.js                   # State diff helpers
+|-- tests/
+|   |-- unit/                         # Pure logic tests
+|   `-- integration/                  # Host adapter and workflow tests
+`-- docs/
+    |-- scope.md
+    `-- design.md
+```
+
+**Conventions:**
+- Source files use kebab-case to match extension-style modules.
+- One module owns one responsibility; cross-cutting helpers stay in `utils/`.
+- Tests mirror source module names and focus on deterministic behavior.
+- Public integration points are imported through `index.js` and adapter modules, not deep-linked ad hoc.
+
+---
+
+### 3.2 Layer Responsibilities
+
+**Host Adapter Layer:**
+
+Purpose: Isolate SillyTavern-specific APIs from core logic.
+
+Responsibilities:
+- ✅ Read current chat/session context and message data.
+- ✅ Apply background updates and emit image payloads through host interfaces.
+- ✅ Translate host-specific events and payloads into project-internal shapes.
+- ❌ Contain business rules for scene inference.
+- ❌ Mutate canonical scene state directly.
+
+Code pattern:
+```js
+export function applyBackground(locationKey, mapping, hostApi) {
+  const background = mapping[locationKey];
+  if (!background) return { ok: false, reason: 'no-mapping' };
+  return hostApi.setBackground(background);
+}
+```
+
+**Core Logic Layer:**
+
+Purpose: Convert turn pairs into validated scene-state updates.
+
+Responsibilities:
+- ✅ Build extraction input from turn pairs.
+- ✅ Validate and normalize extracted data.
+- ✅ Decide whether to commit, reject, or partially merge state changes.
+- ❌ Call DOM APIs directly.
+- ❌ Depend on raw host event payload shapes outside adapter contracts.
+
+Code pattern:
+```js
+export function buildNextSceneState(previousState, extractedState) {
+  const normalized = normalizeSceneState(extractedState);
+  return {
+    ...previousState,
+    ...normalized,
+    updatedAt: Date.now(),
+  };
+}
+```
+
+**State Store Layer:**
+
+Purpose: Own the current valid scene state and notify dependents.
+
+Responsibilities:
+- ✅ Store current state, metadata, and recent update history.
+- ✅ Guard writes behind validation/commit rules.
+- ✅ Notify subscribers on committed changes.
+- ❌ Parse chat text itself.
+- ❌ Decide host-specific side effects.
+
+**UI Layer:**
+
+Purpose: Render settings and explain current extension behavior to the user.
+
+Responsibilities:
+- ✅ Bind settings to `extension_settings`.
+- ✅ Show current state, recent updates, and failure reasons.
+- ✅ Let the user configure active character, debug mode, and location mappings.
+- ❌ Reimplement extraction logic.
+- ❌ Store authoritative state outside the state store.
+
+---
+
+### 3.3 Testing Strategy
+
+**Unit Tests:**
+- Purpose: Prove deterministic normalization, state merging, schema validation, and diff generation.
+- Scope: One pure module or function at a time.
+- Mocking: Mock host adapters and timestamps where needed.
+- Coverage target: >= 80% on changed lines per methodology.md §7, with higher focus on extraction/normalization paths.
+- Run: `[TBD after tooling bootstrap]`
+
+**Integration Tests:**
+- Purpose: Prove end-to-end flow from turn-pair detection through committed state and adapter side effects.
+- Scope: Multiple modules together with mocked SillyTavern host APIs.
+- Environment: Headless or lightweight simulated host environment.
+- When to run: Before merge and for any adapter contract change.
+- Run: `[TBD after tooling bootstrap]`
+
+**E2E / Manual Validation:**
+- Purpose: Confirm the extension updates live chat state, backgrounds, and image payloads correctly in SillyTavern.
+- Scope: Real extension load in a dev instance.
+- Environment: Local SillyTavern session with known sample conversations and background mappings.
+- When to run: Milestone checkpoints and release candidates.
+- Run: Manual scripted checklist until automation exists.
+
+---
+
+## 4. Security Guidelines
+
+### 4.1 Authentication & Authorization
+
+**Authentication:**
+- Mechanism: None owned by this extension; authentication is delegated to the host environment and any external tools configured by the user.
+- Token lifetime: Host-defined or external-tool-defined.
+- Storage: Secrets, if any, stay in local user configuration and must never be committed.
+- Invalidation: Delegated to host/external systems.
+
+**Authorization:**
+- Model: Local user-controlled extension settings.
+- Permission checks: The extension should only operate within the current local SillyTavern user context and should not bypass host controls.
+
+**Implementation:** Security-sensitive integrations must be isolated in adapter modules and documented as they are added.
+
+---
+
+### 4.2 Input Validation
+
+**Validation library:** Lightweight project-defined schema validation initially; can be upgraded to a dedicated validator if needed.
+
+**Where:** Both at extraction boundaries and before state-store commits.
+
+**Validate:**
+- ✅ Turn-pair presence and role ordering.
+- ✅ Structured extraction output shape and required fields.
+- ✅ Enum-like normalized values such as pose/emotion/location categories where applicable.
+- ✅ User settings such as active character selection and location-background mappings.
+
+**Sanitize:**
+- Trim and normalize user-configured string values.
+- Canonicalize whitespace, casing, and synonyms before comparing or storing.
+- Reject unsafe or malformed background mapping values before host application.
+
+**Example:**
+```js
+function validateScenePatch(patch) {
+  if (!patch || typeof patch !== 'object') return false;
+  if (patch.location && typeof patch.location.key !== 'string') return false;
+  return true;
+}
+```
+
+---
+
+### 4.3 Data Protection
+
+**Secrets:**
+- Storage: Local environment or host-managed settings only.
+- Access: Through environment variables or host configuration if future integrations require them.
+- Rotation: User-managed, dependent on integrated external tools.
+- Per methodology.md §8: Never commit secrets.
+
+**Sensitive data:**
+- Chat content: Treat as potentially private; do not log full transcripts by default.
+- Logs: Redact or omit sensitive text unless explicit debug mode is enabled by the user.
+- Persisted state: Store only what is needed for current scene continuity and integrations.
+
+**Local storage:**
+- Use the minimum necessary persisted fields.
+- Avoid writing raw extraction prompts/responses unless the user explicitly enables debug retention.
+
+---
+
+## 5. Performance Guidelines
+
+### 5.1 Processing Optimization
+
+**Patterns:**
+- ✅ Process only the newest complete user + character turn pair.
+- ✅ Skip no-op updates when normalized state has not materially changed.
+- ✅ Cache normalized mapping lookups for backgrounds where useful.
+- ❌ Re-scan the entire chat history for every new message.
+- ❌ Trigger repeated background/image updates if the committed state is unchanged.
+
+**Guideline:** Most work should be incremental and bounded to one fresh interaction cycle.
+
+---
+
+### 5.2 Caching Strategy
+
+**What to cache:**
+- ✅ The current committed scene state.
+- ✅ Recent scene-update history for debug inspection.
+- ✅ Normalized location-to-background mappings derived from settings.
+- ❌ Entire chat history snapshots unless specifically required for a future feature.
+- ❌ Invalid extraction outputs beyond short-lived debug history.
+
+**Cache layers:**
+1. In-memory store: Primary runtime state for current session.
+2. Session/local persistence: Optional recovery of latest valid state and settings across reloads.
+
+**TTL strategy:**
+- Current scene state: Valid until superseded by a newer committed update or session reset.
+- Debug history: Bounded list, not time-based, to avoid unbounded growth.
+
+**Invalidation:**
+- Clear or rebuild derived caches when settings change.
+- Reset state when the active chat or tracked character changes.
+
+---
+
+### 5.3 Rate Limiting
+
+**Limits:**
+- Extraction processing: At most one active processing job per chat update cycle.
+- Expensive side effects: Background and image-payload updates should occur only after a committed state change.
+
+**Algorithm:** Event coalescing with single-flight processing rather than network-style rate limiting.
+
+**Response when exceeded:**
+```json
+{
+  "ok": false,
+  "reason": "processing-already-in-flight"
+}
+```
+
+**Implementation:** The extraction engine should guard against overlapping runs and drop or coalesce stale work.
+
+---
+
+## 6. Observability
+
+### 6.1 Monitoring Metrics
+
+**Key metrics:**
+- Turn pairs processed per session.
+- Extraction success vs. rejection count.
+- State commit count and no-op count.
+- Background update success/failure count.
+- Image payload generation success/failure count.
+- End-to-end processing latency per update.
+
+**Tools:** Local debug counters and logs initially; richer telemetry can be added later if needed.
+
+**Dashboards:** Debug panel should expose a human-readable snapshot of these counters during development.
+
+---
+
+### 6.2 Alerting
+
+**Alert on:**
+- Repeated extraction failures for the same chat session.
+- Repeated adapter failures that block background or image updates.
+- Unhandled exceptions during extension lifecycle hooks.
+
+**Channels:** In-app warning banner or debug panel indication initially.
+
+**Escalation:**
+- Step 1: Surface failure in debug UI and log output.
+- Step 2: Suggest user action such as disabling a failing integration or reviewing settings.
+- Step 3: Record the issue in tracker/handoff once project workflow docs exist.
+
+**Don't alert on:**
+- Single recoverable parse failures.
+- No-op state updates where nothing changed.
+
+---
+
+## 7. Deployment & Operations
+
+### 7.1 Environment Strategy
+
+| Environment | Purpose | Deploy Trigger | Data |
+|-------------|---------|----------------|------|
+| **Local dev** | Build and iterate on extension behavior | Manual reload during development | Local user chats and test fixtures |
+| **Local validation** | Manual acceptance testing in SillyTavern | Before merge/release | Controlled sample chats and mappings |
+| **Release package** | Distributed extension artifact | Tagged release/manual packaging | No bundled user data |
+
+**Config differences:**
+- Local dev: Debug logging enabled, mock/sample mappings allowed.
+- Local validation: Production-like settings with representative chat scenarios.
+
+---
+
+### 7.2 Deployment Process
+
+**Pipeline steps (per methodology.md §9):**
+1. Lint/format
+2. Unit tests with coverage
+3. Integration tests with mocked host APIs
+4. Secret/SCA scan
+5. Package extension runtime files
+6. Install into a SillyTavern extensions directory for manual smoke testing
+7. Validate settings load, state updates, background sync, and image payload output
+
+**Rollback:** Reinstall the prior known-good extension package and clear incompatible persisted state if schema changes require it.
+
+**Artifacts:** Release package should contain only required runtime files, docs, and installation guidance.
+
+---
+
+## 8. Decision Log (ADRs)
+
+### 8.1 ADR-001: Track a Single Active Character per Chat
+
+**Date:** 2026-03-26  
+**Status:** Accepted
+
+**Context:**
+The product concept could expand toward multi-character tracking, but the current problem statement emphasizes one active character. Multi-entity scene inference introduces ambiguity around whose outfit, pose, and emotion should be canonical.
+
+**Decision:**
+The initial architecture tracks exactly one active character per chat session and makes that selection explicit in settings/state.
+
+**Consequences:**
+- ✅ Simpler extraction logic and clearer UI semantics.
+- ✅ Easier debugging and deterministic downstream prompts.
+- ❌ Not sufficient for ensemble scenes.
+- ❌ May require a later migration path for multi-character support.
+
+**Alternatives Considered:**
+- **Track all characters at once**: Rejected for first release because ambiguity and UI complexity rise quickly.
+- **Infer active character automatically with no user control**: Rejected because silent mistakes would be harder to correct.
+
+### 8.2 ADR-002: Use a Validated Scene-State Store as the Single Source of Truth
+
+**Date:** 2026-03-26  
+**Status:** Accepted
+
+**Context:**
+Background updates and image payload generation both need the same authoritative state. Recomputing independently from chat text would create drift and duplicated logic.
+
+**Decision:**
+All downstream behaviors read from a single validated scene-state store that only updates after extraction, validation, and normalization succeed.
+
+**Consequences:**
+- ✅ Consistent behavior across UI, backgrounds, and image generation.
+- ✅ Easier testability and rollback-on-failure behavior.
+- ❌ Requires disciplined module boundaries.
+- ❌ Adds some upfront structure before user-facing features appear.
+
+**Alternatives Considered:**
+- **Compute state separately inside each feature**: Rejected because it would create inconsistent outputs.
+- **Store only raw extraction text**: Rejected because it weakens determinism and validation.
+
+### 8.3 ADR-003: Drive Side Effects from Turn-Pair Deltas, Not Full Chat Reanalysis
+
+**Date:** 2026-03-26  
+**Status:** Accepted
+
+**Context:**
+The extension needs to feel responsive during live chats. Reprocessing the full transcript on every new message is slow and increases the chance of drift.
+
+**Decision:**
+The system analyzes only the newest user message plus the responding character message, then merges the resulting patch into the current scene state.
+
+**Consequences:**
+- ✅ Lower latency and simpler reasoning about each update.
+- ✅ Better fit for live background and image updates.
+- ❌ Can miss older context if the current turn pair is underspecified.
+- ❌ Requires careful merge rules and preservation of prior valid state.
+
+**Alternatives Considered:**
+- **Reanalyze full recent transcript every turn**: Rejected for first release due to cost and instability.
+- **Manual state editing only**: Rejected because it does not meet automation goals.
+
+---
+
+## 9. Coding Standards
+
+### 9.1 Language-Specific Conventions
+
+**Naming:**
+- Modules/files: `kebab-case`
+- Functions: `camelCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Settings keys: stable lowercase identifiers under the extension namespace
+
+**Language features:**
+- ✅ Use `const`/`let`, async/await, and small pure functions where possible.
+- ✅ Keep host interaction behind adapters.
+- ❌ Avoid hidden global state outside the extension settings/store.
+- ❌ Avoid mixing DOM manipulation with extraction/state logic in the same module.
+
+**Formatting:**
+- Follow the repo's eventual formatter/linter once added.
+- Until tooling exists, prefer readable, dependency-light JavaScript with consistent semicolons and modest function size.
+
+---
+
+### 9.2 Comments & Documentation
+
+**Comment when:**
+- ✅ Explaining why a normalization or merge rule exists.
+- ✅ Warning about host API quirks or lifecycle timing.
+- ✅ Documenting schema fields or side-effect sequencing.
+- ❌ Restating obvious code behavior.
+
+**Documentation format:**
+- Public module entrypoints: brief JSDoc where the contract is not obvious.
+- Inline comments: short rationale-focused notes.
+
+---
+
+### 9.3 Git Commit Messages
+
+**Format:** Conventional Commits
+
+```text
+<type>(<scope>): <subject>
+```
+
+**Types:**
+- `feat`: user-visible extension behavior
+- `fix`: bug fix
+- `docs`: documentation change
+- `test`: test additions or fixes
+- `refactor`: internal restructuring with no user-visible behavior change
+
+**Examples:**
+```text
+feat(scene): add validated scene state store
+feat(background): sync mapped backgrounds from location changes
+docs(scope): define project boundaries and milestones
+```
+
+---
+
+## 10. Extensibility & Future Work
+
+### 10.1 Extension Points
+
+**Designed for extension:**
+- Extraction schema fields can expand to include lighting, weather, or props.
+- Background mapping can evolve from exact key matching to richer rule-based matching.
+- Image payload generation can support multiple output adapters for different native workflows.
+- Character selection can be extended to multi-character tracking in a later milestone.
+
+**How to extend:**
+- Add new scene fields in `schema.js`, normalization rules in `normalizers.js`, and adapter serialization support in `image-payload-adapter.js`.
+- New host integrations should be added as adapter modules rather than mixed into core logic.
+
+**Planned extensions:**
+- Manual scene-state overrides from UI.
+- Field-level confidence scores or "unknown" handling.
+- Multi-character support after the single-character path is stable.
+
+---
+
+### 10.2 Tech Debt Tracking
+
+**Document debt:**
+- In code: `TODO(T-XXX): description` once tracker tasks exist.
+- In tracker.md: add tech-debt tasks tied to specific modules.
+- In handoff.md: record debt that blocks next-session progress.
+
+**Review cadence:** At each milestone and before any release package.
+
+**Priority criteria:**
+- Prioritize debt that affects deterministic output, host compatibility, security, or debugging.
+
+---
+
+## 11. Changelog
+
+| Date | Version | Changes | Author |
+|------|---------|---------|--------|
+| 2026-03-26 | 1.0 | Initial technical design for SceneStateTracker | Codex |
+
+---
+
+## Appendix A: Useful References
+
+**Internal:**
+- `docs/scope.md`
+- `docs/methodology.md`
+- `docs/ai_patterns.md`
+- `.agents/skills/sillytavern-extension-builder/references/writing-extensions-reference.md`

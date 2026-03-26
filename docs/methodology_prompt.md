@@ -141,7 +141,6 @@ Use this exact structure (from methodology.md §12):
 - `npm test` shows 12/12 unit tests passing, coverage 85%+
 - Integration test: 100 requests succeed, 101st returns 429
 - Decision on fail-open/closed documented in design.md
-```
 
 ---
 
