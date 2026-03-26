@@ -1,4 +1,5 @@
-export const EXTENSION_NAME = 'SST';
+export const EXTENSION_NAME = 'third-party/SST';
+export const EXTENSION_SETTINGS_KEY = 'SST';
 
 const DEFAULT_SETTINGS = {
     enabled: true,
@@ -7,10 +8,10 @@ const DEFAULT_SETTINGS = {
 };
 
 export function initializeSettings(extensionSettings) {
-    extensionSettings[EXTENSION_NAME] = extensionSettings[EXTENSION_NAME] || {};
+    extensionSettings[EXTENSION_SETTINGS_KEY] = extensionSettings[EXTENSION_SETTINGS_KEY] || {};
 
-    const settings = Object.assign({}, DEFAULT_SETTINGS, extensionSettings[EXTENSION_NAME]);
-    extensionSettings[EXTENSION_NAME] = settings;
+    const settings = Object.assign({}, DEFAULT_SETTINGS, extensionSettings[EXTENSION_SETTINGS_KEY]);
+    extensionSettings[EXTENSION_SETTINGS_KEY] = settings;
 
     return settings;
 }

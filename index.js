@@ -15,6 +15,7 @@ import { createDebugPanel } from './src/ui/debug-panel.js';
 import {
     bindSettingsUi,
     EXTENSION_NAME,
+    EXTENSION_SETTINGS_KEY,
     initializeSettings,
 } from './src/ui/settings-controller.js';
 import { createLogger } from './src/utils/logger.js';
@@ -60,9 +61,9 @@ async function renderSettings() {
     });
 
     debugPanel = createDebugPanel({
-        rootSelector: `#${EXTENSION_NAME}_debug_panel`,
-        statusSelector: `#${EXTENSION_NAME}_status`,
-        stateSelector: `#${EXTENSION_NAME}_state`,
+        rootSelector: `#${EXTENSION_SETTINGS_KEY}_debug_panel`,
+        statusSelector: `#${EXTENSION_SETTINGS_KEY}_status`,
+        stateSelector: `#${EXTENSION_SETTINGS_KEY}_state`,
         settings,
     });
 
@@ -89,7 +90,7 @@ jQuery(async () => {
     await loadExtensionSettings(EXTENSION_NAME);
 
     settings = initializeSettings(extension_settings);
-    logger = createLogger(EXTENSION_NAME, { debugEnabled: settings.debug });
+    logger = createLogger(EXTENSION_SETTINGS_KEY, { debugEnabled: settings.debug });
     sceneStateStore = createSceneStateStore({ logger });
 
     const chatAdapter = createSillyTavernChatAdapter();
