@@ -23,25 +23,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## Active Tasks
 
-## T-001 - [feature] Scaffold extension foundation
-- Owner: Human operator + AI assistant
-- Status: ?? 70% | Dates: started 2026-03-26, expected by 2026-03-28, last touched 2026-03-26
-- Scope: scope.md § In Scope, § Constraints & Assumptions
-- Design: design.md §1.2, §1.3, §3.1
-- Acceptance criteria:
-  - Extension runtime files exist: `manifest.json`, `index.js`, `style.css`, and `settings.html`
-  - `src/` module structure exists for `core`, `adapters`, `ui`, and `utils` per design.md §3.1
-  - Extension loads in SillyTavern without startup errors
-  - Base settings initialize under the extension namespace and persist through reload
-  - Manual validation confirms the extension can be enabled/disabled cleanly in a local SillyTavern instance
-- Evidence:
-  - Runtime scaffold added: `manifest.json`, `index.js`, `style.css`, `settings.html`
-  - Module skeleton added under `src/core`, `src/adapters`, `src/ui`, and `src/utils`
-  - Test directory scaffold added: `tests/unit/.gitkeep`, `tests/integration/.gitkeep`
-  - Base settings wired under `extension_settings['scene-state-tracker']` with debounced persistence hooks
-  - Remaining evidence pending: local SillyTavern load/reload/manual enable-disable verification
-- Dependencies: None
-- Notes: Code scaffold is in place; task remains open until host validation confirms startup compatibility
+None at the moment. T-002 is the next task to begin.
 
 ---
 
@@ -242,7 +224,24 @@ No blocked tasks at the moment.
 
 ## Completed Tasks
 
-No completed implementation tasks yet.
+## T-001 - [feature] Scaffold extension foundation
+- Owner: Human operator + AI assistant
+- Status: ? 100% | Dates: started 2026-03-26, completed 2026-03-26, last touched 2026-03-26
+- Scope: scope.md § In Scope, § Constraints & Assumptions
+- Design: design.md §1.2, §1.3, §3.1
+- Acceptance criteria met:
+  - Extension runtime files exist: `manifest.json`, `index.js`, `style.css`, and `settings.html`
+  - `src/` module structure exists for `core`, `adapters`, `ui`, and `utils` per design.md §3.1
+  - Extension loads in SillyTavern without startup errors
+  - Base settings initialize under the extension namespace and persist through reload
+  - Manual validation confirms the extension can be enabled/disabled cleanly in a local SillyTavern instance
+- Evidence:
+  - Runtime scaffold added and committed on branch `codex/scene-state-tracker-scaffold`
+  - Third-party template path fixed for the SillyTavern user-extension route (`third-party/SST`)
+  - Recursive settings reload removed from `index.js`, resolving the post-reload panel disappearance
+  - Manual validation in local SillyTavern confirmed settings panel visibility, startup success, and persistence across reload
+- Dependencies: None
+- Notes: T-002 is now unblocked
 
 ---
 
@@ -257,5 +256,6 @@ No completed implementation tasks yet.
 
 | Date | Changes | Author |
 |------|---------|--------|
+| 2026-03-26 | Marked T-001 complete with local SillyTavern validation evidence | Codex |
 | 2026-03-26 | Updated T-001 with scaffold progress and pending validation evidence | Codex |
 | 2026-03-26 | Initial tracker created with implementation backlog for SceneStateTracker | Codex |
