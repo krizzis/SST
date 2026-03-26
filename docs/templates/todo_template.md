@@ -34,7 +34,7 @@ This document contains the **session-specific subset** of tasks from `tracker.md
 
 **Instructions:** List 1-3 tasks from tracker.md that you'll work on this session. Include task ID, title, and acceptance criteria for easy reference.
 
-### T-XXX — [Task Title from Tracker]
+### T-XXX - [Task Title from Tracker]
 
 **From tracker.md:**
 - Acceptance criteria:
@@ -53,7 +53,7 @@ This document contains the **session-specific subset** of tasks from `tracker.md
 
 ---
 
-### T-XXX — [Second Task, if time permits]
+### T-XXX - [Second Task, if time permits]
 
 **From tracker.md:**
 - Acceptance criteria:
@@ -69,13 +69,13 @@ This document contains the **session-specific subset** of tasks from `tracker.md
 ## Session Priorities
 
 **Must complete (P0):**
-- T-XXX: [Task title] — [Why this is critical]
+- T-XXX: [Task title] - [Why this is critical]
 
 **Should complete (P1):**
-- T-XXX: [Task title] — [Nice to have, but not blocking]
+- T-XXX: [Task title] - [Nice to have, but not blocking]
 
 **Could complete if time (P2):**
-- T-XXX: [Task title] — [Bonus if we get here]
+- T-XXX: [Task title] - [Bonus if we get here]
 
 ---
 
@@ -158,18 +158,18 @@ If we don't complete everything:
 
 ## Active Tasks for This Session
 
-### T-015 — Add Rate Limiting to API
+### T-015 - Add Rate Limiting to API
 
 **From tracker.md:**
 - Acceptance criteria:
   - 100 requests/min per IP enforced
   - Returns 429 status when limit exceeded
-  - Unit tests ≥80% coverage
+  - Unit tests >=80% coverage
   - Integration test proves limit works
 
 **Session-specific notes:**
 - Last session completed auth (T-014), so Redis is already set up
-- Design.md §5.3 specifies token bucket algorithm
+- Design.md Section 5.3 specifies token bucket algorithm
 - Need to handle Redis unavailable scenario (fail closed per security req)
 
 **Expected progress this session:**
@@ -180,7 +180,7 @@ If we don't complete everything:
 ## Session Priorities
 
 **Must complete (P0):**
-- T-015: Rate limiting — Blocks T-016 (admin bypass)
+- T-015: Rate limiting - Blocks T-016 (admin bypass)
 
 ## Context for This Session
 
@@ -190,7 +190,7 @@ If we don't complete everything:
 - All auth tests passing
 
 **Current blockers/dependencies:**
-- None — Redis dependency already met
+- None - Redis dependency already met
 
 **Environment notes:**
 - Redis running on localhost:6379
@@ -200,9 +200,9 @@ If we don't complete everything:
 
 By end of session, we should have:
 - [x] Rate limiter middleware implemented
-- [x] 12+ unit tests passing with ≥80% coverage
+- [x] 12+ unit tests passing with >=80% coverage
 - [x] Integration test proves 100 req/min limit
-- [x] Tracker.md updated to T-015: ✅ 100%
+- [x] Tracker.md updated to T-015: [v] 100%
 - [x] Handoff.md updated with session results
 
 ## Time Boxing
@@ -219,19 +219,19 @@ By end of session, we should have:
 
 **todo.md connects to:**
 
-- **tracker.md** — Source of tasks (todo is a subset)
+- **tracker.md** - Source of tasks (todo is a subset)
   - Tasks copied FROM tracker.md
   - Progress flows BACK TO tracker.md
 
-- **handoff.md** — Context of where we left off
+- **handoff.md** - Context of where we left off
   - Read handoff.md BEFORE creating todo.md
   - Update handoff.md AFTER completing todo.md work
 
-- **design.md** — Technical context for tasks
+- **design.md** - Technical context for tasks
   - Reference design.md sections while working on todo tasks
   - Ensure todo work follows design.md patterns
 
-- **scope.md** — Validates tasks are in scope
+- **scope.md** - Validates tasks are in scope
   - Ensure todo tasks align with scope.md goals
   - Don't add todo items that are out of scope
 
@@ -242,18 +242,18 @@ By end of session, we should have:
 For very short sessions (30-60 minutes):
 
 ```markdown
-# todo.md — Quick Session
+# todo.md - Quick Session
 
 **Date:** YYYY-MM-DD | **Budget:** 1 hour
 
 **Goal:** [One specific thing]
 
-**Task:** T-XXX — [Title]
+**Task:** T-XXX - [Title]
 
 **Plan:**
-1. [Step 1] — 20 min
-2. [Step 2] — 20 min
-3. [Validate] — 20 min
+1. [Step 1] - 20 min
+2. [Step 2] - 20 min
+3. [Validate] - 20 min
 
 **Success:** [Done when X is true]
 ```
@@ -262,24 +262,24 @@ For very short sessions (30-60 minutes):
 
 ## Anti-Patterns (Don't Do This)
 
-❌ **Overloading todo.md with too many tasks**
+[x] **Overloading todo.md with too many tasks**
 - More than 3 tasks usually means you won't finish any
 - Better: 1 task done than 3 tasks half-done
 
-❌ **Using todo.md as permanent task list**
+[x] **Using todo.md as permanent task list**
 - Todo.md is ephemeral (per-session)
 - Tracker.md is permanent (project-wide)
 - Don't lose tasks by keeping them only in todo.md
 
-❌ **Skipping todo.md creation**
+[x] **Skipping todo.md creation**
 - Without it, AI doesn't know what to focus on
 - Leads to wandering sessions without clear goals
 
-❌ **Not updating after session**
+[x] **Not updating after session**
 - Stale todo.md confuses next session
 - Always create fresh todo.md based on updated tracker.md
 
-❌ **Ignoring time budget**
+[x] **Ignoring time budget**
 - Setting 4 hours of work in 2-hour session
 - Leads to incomplete work and poor handoffs
 
@@ -299,17 +299,17 @@ For very short sessions (30-60 minutes):
 ## Summary
 
 **todo.md is:**
-- ✅ Session-specific (new each session)
-- ✅ Subset of tracker.md (bounded scope)
-- ✅ Time-boxed (fits session budget)
-- ✅ Focused (1-3 tasks maximum)
-- ✅ Updated before each session starts
-- ✅ Used to guide AI on "what now"
+- [v] Session-specific (new each session)
+- [v] Subset of tracker.md (bounded scope)
+- [v] Time-boxed (fits session budget)
+- [v] Focused (1-3 tasks maximum)
+- [v] Updated before each session starts
+- [v] Used to guide AI on "what now"
 
 **todo.md is NOT:**
-- ❌ Permanent task storage (that's tracker.md)
-- ❌ Strategic planning (that's scope.md)
-- ❌ Technical decisions (that's design.md)
-- ❌ Session results (that's handoff.md)
+- [x] Permanent task storage (that's tracker.md)
+- [x] Strategic planning (that's scope.md)
+- [x] Technical decisions (that's design.md)
+- [x] Session results (that's handoff.md)
 
-Think of todo.md as your **session work order** — what's on the workbench right now.
+Think of todo.md as your **session work order** - what's on the workbench right now.

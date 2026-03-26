@@ -14,10 +14,10 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## Status Glyphs (Use These)
 
-? **Not started** - Task defined but not yet begun  
-?? **In progress** - Actively being worked on  
-? **Done** - Completed and meets acceptance criteria  
-?? **Blocked** - Cannot proceed, needs intervention
+[ ] **Not started** - Task defined but not yet begun  
+[~] **In progress** - Actively being worked on  
+[v] **Done** - Completed and meets acceptance criteria  
+[!] **Blocked** - Cannot proceed, needs intervention
 
 ---
 
@@ -25,14 +25,14 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-003 - [feature] Build turn-pair collector and update trigger flow
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-03-30, expected by 2026-04-01
-- Scope: scope.md § In Scope, § Constraints & Assumptions
-- Design: design.md §1.2, §3.1, §3.2, §8.3
+- Status: [ ] 0% | Dates: planned start 2026-03-30, expected by 2026-04-01
+- Scope: scope.md In Scope, Constraints & Assumptions
+- Design: design.md Section 1.2, Section 3.1, Section 3.2, Section 8.3
 - Acceptance criteria:
   - The extension detects the latest complete user message plus responding character message as one analyzable turn pair
   - Processing is limited to the active tracked character and current chat session
   - Duplicate or stale chat events do not trigger duplicate processing for the same turn pair
-  - Overlapping processing is coalesced or rejected safely per design.md §5.3
+  - Overlapping processing is coalesced or rejected safely per design.md Section 5.3
   - Integration-level validation proves turn-pair capture order is correct for representative chat flows
 - Evidence: Will be added when started
 - Dependencies: T-001
@@ -44,9 +44,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-004 - [feature] Implement extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
-- Scope: scope.md § Goals, § Success Metrics (SLOs)
-- Design: design.md §1.2, §2.1, §2.2, §4.2, §8.2
+- Status: [ ] 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
+- Scope: scope.md Goals, Success Metrics (SLOs)
+- Design: design.md Section 1.2, Section 2.1, Section 2.2, Section 4.2, Section 8.2
 - Acceptance criteria:
   - The extraction engine accepts a turn pair and returns a structured scene patch in the project schema, including action and interaction where present
   - Validation failures produce structured error results and retain the last known good scene state
@@ -61,9 +61,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-005 - [feature] Implement canonical scene-state store with history and persistence
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-03, expected by 2026-04-05
-- Scope: scope.md § Goals, § Success Metrics (SLOs)
-- Design: design.md §2.1, §3.1, §3.2, §5.2, §8.2
+- Status: [ ] 0% | Dates: planned start 2026-04-03, expected by 2026-04-05
+- Scope: scope.md Goals, Success Metrics (SLOs)
+- Design: design.md Section 2.1, Section 3.1, Section 3.2, Section 5.2, Section 8.2
 - Acceptance criteria:
   - A single module owns the current committed scene state and recent update history
   - State commits occur only after validation succeeds
@@ -78,9 +78,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-006 - [feature] Build settings UI for tracking control and location mapping
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-05, expected by 2026-04-07
-- Scope: scope.md § In Scope, § Risks (initial)
-- Design: design.md §1.2, §3.1, §3.2, §10.1
+- Status: [ ] 0% | Dates: planned start 2026-04-05, expected by 2026-04-07
+- Scope: scope.md In Scope, Risks (initial)
+- Design: design.md Section 1.2, Section 3.1, Section 3.2, Section 10.1
 - Acceptance criteria:
   - Users can enable or disable scene tracking in the extension settings
   - Users can select or confirm the active tracked character for the current chat
@@ -95,9 +95,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-007 - [feature] Implement background adapter and location-driven background sync
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-07, expected by 2026-04-09
-- Scope: scope.md § Goals, § Success Metrics (SLOs), § Dependencies
-- Design: design.md §1.2, §2.1, §2.3, §3.2, §8.2
+- Status: [ ] 0% | Dates: planned start 2026-04-07, expected by 2026-04-09
+- Scope: scope.md Goals, Success Metrics (SLOs), Dependencies
+- Design: design.md Section 1.2, Section 2.1, Section 2.3, Section 3.2, Section 8.2
 - Acceptance criteria:
   - Committed location changes are mapped through normalized location keys to configured backgrounds
   - Background changes are skipped when the normalized location is unchanged or unmapped
@@ -112,9 +112,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-008 - [feature] Implement deterministic image payload adapter for native pipeline
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-08, expected by 2026-04-10
-- Scope: scope.md § Goals, § In Scope, § Dependencies
-- Design: design.md §1.2, §2.1, §2.3, §3.2, §10.1
+- Status: [ ] 0% | Dates: planned start 2026-04-08, expected by 2026-04-10
+- Scope: scope.md Goals, In Scope, Dependencies
+- Design: design.md Section 1.2, Section 2.1, Section 2.3, Section 3.2, Section 10.1
 - Acceptance criteria:
   - Current committed scene state can be serialized into a deterministic payload for the native SillyTavern image workflow
   - Prompt generation merges scene state with stable appearance facts and optional LoRA tags sourced from the active SillyTavern character card
@@ -130,9 +130,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-009 - [feature] Add debug panel, observability counters, and failure surfacing
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-09, expected by 2026-04-11
-- Scope: scope.md § Goals, § In Scope
-- Design: design.md §2.3, §6.1, §6.2
+- Status: [ ] 0% | Dates: planned start 2026-04-09, expected by 2026-04-11
+- Scope: scope.md Goals, In Scope
+- Design: design.md Section 2.3, Section 6.1, Section 6.2
 - Acceptance criteria:
   - A debug panel displays current committed scene state and recent update history
   - The extension exposes counters for processed turn pairs, successes, rejections, and adapter failures
@@ -147,9 +147,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-010 - [test] Establish automated test harness and coverage baseline
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-10, expected by 2026-04-13
-- Scope: scope.md § Success Metrics (SLOs)
-- Design: design.md §1.3, §3.3, §7.2
+- Status: [ ] 0% | Dates: planned start 2026-04-10, expected by 2026-04-13
+- Scope: scope.md Success Metrics (SLOs)
+- Design: design.md Section 1.3, Section 3.3, Section 7.2
 - Acceptance criteria:
   - A project test runner is selected and configured for extension-compatible unit and integration tests
   - Core modules have executable unit tests for normalization, validation, and state-store behavior
@@ -164,9 +164,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-011 - [docs] Prepare install, configuration, and validation documentation
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-12, expected by 2026-04-14
-- Scope: scope.md § Goals, § Milestones
-- Design: design.md §7.1, §7.2, §10.1
+- Status: [ ] 0% | Dates: planned start 2026-04-12, expected by 2026-04-14
+- Scope: scope.md Goals, Milestones
+- Design: design.md Section 7.1, Section 7.2, Section 10.1
 - Acceptance criteria:
   - Installation instructions exist for loading the extension into SillyTavern
   - Configuration guidance explains active character selection, background mappings, character-card appearance / LoRA sourcing, and image payload usage
@@ -181,9 +181,9 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-012 - [infra] Release-readiness and packaging pass
 - Owner: Human operator + AI assistant
-- Status: ? 0% | Dates: planned start 2026-04-14, expected by 2026-04-16
-- Scope: scope.md § Milestones, § Success Metrics (SLOs)
-- Design: design.md §7.2, §10.2
+- Status: [ ] 0% | Dates: planned start 2026-04-14, expected by 2026-04-16
+- Scope: scope.md Milestones, Success Metrics (SLOs)
+- Design: design.md Section 7.2, Section 10.2
 - Acceptance criteria:
   - Runtime package contains only required extension files and user-facing docs
   - Manual smoke test passes in a clean local SillyTavern install
@@ -206,9 +206,9 @@ No blocked tasks at the moment.
 
 ## T-002 - [feature] Define scene-state schema and normalization rules
 - Owner: Human operator + AI assistant
-- Status: ? 100% | Dates: started 2026-03-26, completed 2026-03-27, last touched 2026-03-27
-- Scope: scope.md § Goals, § In Scope, § Risks (initial)
-- Design: design.md §2.1, §3.1, §4.2, §8.1
+- Status: [v] 100% | Dates: started 2026-03-26, completed 2026-03-27, last touched 2026-03-27
+- Scope: scope.md Goals, In Scope, Risks (initial)
+- Design: design.md Section 2.1, Section 3.1, Section 4.2, Section 8.1
 - Acceptance criteria met:
   - Canonical schema for scene state is defined, including `outfit`, `pose`, `emotion`, `location`, `action`, `interaction`, and `summary`
   - Normalization rules canonicalize semantic equivalents for location keys and other enum-like fields
@@ -228,12 +228,12 @@ No blocked tasks at the moment.
 
 ## T-001 - [feature] Scaffold extension foundation
 - Owner: Human operator + AI assistant
-- Status: ? 100% | Dates: started 2026-03-26, completed 2026-03-26, last touched 2026-03-26
-- Scope: scope.md § In Scope, § Constraints & Assumptions
-- Design: design.md §1.2, §1.3, §3.1
+- Status: [v] 100% | Dates: started 2026-03-26, completed 2026-03-26, last touched 2026-03-26
+- Scope: scope.md In Scope, Constraints & Assumptions
+- Design: design.md Section 1.2, Section 1.3, Section 3.1
 - Acceptance criteria met:
   - Extension runtime files exist: `manifest.json`, `index.js`, `style.css`, and `settings.html`
-  - `src/` module structure exists for `core`, `adapters`, `ui`, and `utils` per design.md §3.1
+  - `src/` module structure exists for `core`, `adapters`, `ui`, and `utils` per design.md Section 3.1
   - Extension loads in SillyTavern without startup errors
   - Base settings initialize under the extension namespace and persist through reload
   - Manual validation confirms the extension can be enabled/disabled cleanly in a local SillyTavern instance
@@ -263,4 +263,5 @@ No blocked tasks at the moment.
 | 2026-03-26 | Marked T-001 complete with local SillyTavern validation evidence | Codex |
 | 2026-03-26 | Updated T-001 with scaffold progress and pending validation evidence | Codex |
 | 2026-03-26 | Initial tracker created with implementation backlog for SceneStateTracker | Codex |
+
 

@@ -98,10 +98,10 @@ Component responsibilities:
 | Testing | Node built-in test runner | Host-compatible | Gives the repo a zero-dependency unit-test baseline while the extension remains dependency-light |
 
 Constraints:
-- ? Use documented SillyTavern extension lifecycle, settings, and event patterns.
-- ? Keep the initial implementation dependency-light and understandable.
-- ? Avoid introducing a standalone backend service for first release.
-- ? Avoid opaque state mutations outside the scene-state store.
+- Use documented SillyTavern extension lifecycle, settings, and event patterns.
+- Keep the initial implementation dependency-light and understandable.
+- Avoid introducing a standalone backend service for first release.
+- Avoid opaque state mutations outside the scene-state store.
 
 ---
 
@@ -181,7 +181,7 @@ Constraints:
 - Image payload generation events with the emitted field set, not the full sensitive prompt text unless debug is enabled.
 
 **Never log:**
-- Secrets or credentials, per methodology.md §8.
+- Secrets or credentials, per methodology.md Section 8.
 - Entire chat transcripts by default.
 - Full image prompts in standard mode if they may expose user-private context.
 
@@ -240,54 +240,54 @@ project-root/
 Purpose: Isolate SillyTavern-specific APIs from core logic.
 
 Responsibilities:
-- ? Read current chat/session context, message data, and active-character card metadata.
-- ? Apply background updates and emit image payloads through host interfaces.
-- ? Translate host-specific events and payloads into project-internal shapes.
-- ? Contain business rules for scene inference.
-- ? Mutate canonical scene state directly.
+- [v] Read current chat/session context, message data, and active-character card metadata.
+- [v] Apply background updates and emit image payloads through host interfaces.
+- [v] Translate host-specific events and payloads into project-internal shapes.
+- [x] Contain business rules for scene inference.
+- [x] Mutate canonical scene state directly.
 
 **Core Logic Layer:**
 
 Purpose: Convert turn pairs into validated scene-state updates.
 
 Responsibilities:
-- ? Build extraction input from turn pairs.
-- ? Validate and normalize extracted data.
-- ? Decide whether to commit, reject, or partially merge state changes.
-- ? Call DOM APIs directly.
-- ? Depend on raw host event payload shapes outside adapter contracts.
+- [v] Build extraction input from turn pairs.
+- [v] Validate and normalize extracted data.
+- [v] Decide whether to commit, reject, or partially merge state changes.
+- [x] Call DOM APIs directly.
+- [x] Depend on raw host event payload shapes outside adapter contracts.
 
 **State Store Layer:**
 
 Purpose: Own the current valid scene state and notify dependents.
 
 Responsibilities:
-- ? Store current state, metadata, and recent update history.
-- ? Guard writes behind validation/commit rules.
-- ? Notify subscribers on committed changes.
-- ? Parse chat text itself.
-- ? Decide host-specific side effects.
+- [v] Store current state, metadata, and recent update history.
+- [v] Guard writes behind validation/commit rules.
+- [v] Notify subscribers on committed changes.
+- [x] Parse chat text itself.
+- [x] Decide host-specific side effects.
 
 **Prompt Composition Layer:**
 
 Purpose: Build deterministic generation payloads from scene state plus stable card metadata.
 
 Responsibilities:
-- ? Read normalized scene state from the store.
-- ? Read stable appearance facts and optional LoRA tags from the active character card.
-- ? Normalize output into deterministic Danbooru-style tags, including NSFW outfit/action/interaction tags when present.
-- ? Rewrite scene state or treat stable appearance as per-turn mutable data.
+- [v] Read normalized scene state from the store.
+- [v] Read stable appearance facts and optional LoRA tags from the active character card.
+- [v] Normalize output into deterministic Danbooru-style tags, including NSFW outfit/action/interaction tags when present.
+- [x] Rewrite scene state or treat stable appearance as per-turn mutable data.
 
 **UI Layer:**
 
 Purpose: Render settings and explain current extension behavior to the user.
 
 Responsibilities:
-- ? Bind settings to `extension_settings`.
-- ? Show current state, recent updates, and failure reasons.
-- ? Let the user configure active character, debug mode, and location mappings.
-- ? Reimplement extraction logic.
-- ? Store authoritative state outside the state store.
+- [v] Bind settings to `extension_settings`.
+- [v] Show current state, recent updates, and failure reasons.
+- [v] Let the user configure active character, debug mode, and location mappings.
+- [x] Reimplement extraction logic.
+- [x] Store authoritative state outside the state store.
 
 ---
 
@@ -297,7 +297,7 @@ Responsibilities:
 - Purpose: Prove deterministic normalization, state merging, schema validation, and diff generation.
 - Scope: One pure module or function at a time.
 - Mocking: Mock host adapters and timestamps where needed.
-- Coverage target: >= 80% on changed lines per methodology.md §7, with higher focus on extraction/normalization paths.
+- Coverage target: >= 80% on changed lines per methodology.md Section 7, with higher focus on extraction/normalization paths.
 - Run: `node --test` and `node --test --experimental-test-coverage`
 
 **Integration Tests:**
@@ -341,11 +341,11 @@ Responsibilities:
 **Where:** Both at extraction boundaries and before state-store commits.
 
 **Validate:**
-- ? Turn-pair presence and role ordering.
-- ? Structured extraction output shape and required fields.
-- ? Enum-like normalized values such as pose, emotion, location, action, and interaction categories where applicable.
-- ? User settings such as active character selection and location-background mappings.
-- ? Character-card appearance / LoRA metadata before prompt serialization.
+- Turn-pair presence and role ordering.
+- Structured extraction output shape and required fields.
+- Enum-like normalized values such as pose, emotion, location, action, and interaction categories where applicable.
+- User settings such as active character selection and location-background mappings.
+- Character-card appearance / LoRA metadata before prompt serialization.
 
 **Sanitize:**
 - Trim and normalize user-configured string values.
@@ -360,7 +360,7 @@ Responsibilities:
 - Storage: Local environment or host-managed settings only.
 - Access: Through environment variables or host configuration if future integrations require them.
 - Rotation: User-managed, dependent on integrated external tools.
-- Per methodology.md §8: Never commit secrets.
+- Per methodology.md Section 8: Never commit secrets.
 
 **Sensitive data:**
 - Chat content: Treat as potentially private; do not log full transcripts by default.
@@ -379,12 +379,12 @@ Responsibilities:
 ### 5.1 Processing Optimization
 
 **Patterns:**
-- ? Process only the newest complete user + character turn pair.
-- ? Skip no-op updates when normalized state has not materially changed.
-- ? Cache normalized mapping lookups for backgrounds where useful.
-- ? Cache stable character-card appearance / LoRA normalization while the active character is unchanged.
-- ? Re-scan the entire chat history for every new message.
-- ? Trigger repeated background/image updates if the committed state is unchanged.
+- [v] Process only the newest complete user + character turn pair.
+- [v] Skip no-op updates when normalized state has not materially changed.
+- [v] Cache normalized mapping lookups for backgrounds where useful.
+- [v] Cache stable character-card appearance / LoRA normalization while the active character is unchanged.
+- [x] Re-scan the entire chat history for every new message.
+- [x] Trigger repeated background/image updates if the committed state is unchanged.
 
 **Guideline:** Most work should be incremental and bounded to one fresh interaction cycle.
 
@@ -393,12 +393,12 @@ Responsibilities:
 ### 5.2 Caching Strategy
 
 **What to cache:**
-- ? The current committed scene state.
-- ? Recent scene-update history for debug inspection.
-- ? Normalized location-to-background mappings derived from settings.
-- ? Stable normalized appearance / LoRA metadata for the active character.
-- ? Entire chat history snapshots unless specifically required for a future feature.
-- ? Invalid extraction outputs beyond short-lived debug history.
+- [v] The current committed scene state.
+- [v] Recent scene-update history for debug inspection.
+- [v] Normalized location-to-background mappings derived from settings.
+- [v] Stable normalized appearance / LoRA metadata for the active character.
+- [x] Entire chat history snapshots unless specifically required for a future feature.
+- [x] Invalid extraction outputs beyond short-lived debug history.
 
 **Cache layers:**
 1. In-memory store: Primary runtime state for current session.
@@ -493,7 +493,7 @@ Responsibilities:
 
 ### 7.2 Deployment Process
 
-**Pipeline steps (per methodology.md §9):**
+**Pipeline steps (per methodology.md Section 9):**
 1. Lint/format
 2. Unit tests with coverage
 3. Integration tests with mocked host APIs
@@ -555,9 +555,9 @@ Stable character-card appearance and optional LoRA tags are needed for image pro
 Store only mutable scene facts in scene state. Resolve stable appearance facts and optional LoRA tags from the active SillyTavern character card during prompt generation.
 
 **Consequences:**
-- ? Clearer boundary between scene continuity and character identity.
-- ? Less risk of overwriting stable card data with noisy extraction output.
-- ? Prompt generation now depends on card metadata access being available.
+- [v] Clearer boundary between scene continuity and character identity.
+- [v] Less risk of overwriting stable card data with noisy extraction output.
+- [!] Prompt generation now depends on card metadata access being available.
 
 ### 8.5 ADR-005: Normalize Prompt Output to Danbooru-Style Tags
 
@@ -571,9 +571,9 @@ Native image workflows consume tags more reliably than prose, and NSFW scenes re
 Prompt generation should emit deterministic Danbooru-style tags in stable order, merging card appearance, optional LoRA tags, and normalized scene-state tags.
 
 **Consequences:**
-- ? More deterministic payloads for image workflows.
-- ? Cleaner support for NSFW prompts through explicit canonical tags.
-- ? Requires careful tag normalization and card-field parsing.
+- [v] More deterministic payloads for image workflows.
+- [v] Cleaner support for NSFW prompts through explicit canonical tags.
+- [!] Requires careful tag normalization and card-field parsing.
 
 ---
 
@@ -588,10 +588,10 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 - Settings keys: stable lowercase identifiers under the extension namespace
 
 **Language features:**
-- ? Use `const`/`let`, async/await, and small pure functions where possible.
-- ? Keep host interaction behind adapters.
-- ? Avoid hidden global state outside the extension settings/store.
-- ? Avoid mixing DOM manipulation with extraction/state logic in the same module.
+- Use `const`/`let`, async/await, and small pure functions where possible.
+- Keep host interaction behind adapters.
+- Avoid hidden global state outside the extension settings/store.
+- Avoid mixing DOM manipulation with extraction/state logic in the same module.
 
 **Formatting:**
 - Follow the repo's eventual formatter/linter once added.
@@ -602,10 +602,10 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 ### 9.2 Comments & Documentation
 
 **Comment when:**
-- ? Explaining why a normalization or merge rule exists.
-- ? Warning about host API quirks or lifecycle timing.
-- ? Documenting schema fields or side-effect sequencing.
-- ? Restating obvious code behavior.
+- [v] Explaining why a normalization or merge rule exists.
+- [v] Warning about host API quirks or lifecycle timing.
+- [v] Documenting schema fields or side-effect sequencing.
+- [x] Restating obvious code behavior.
 
 **Documentation format:**
 - Public module entrypoints: brief JSDoc where the contract is not obvious.
@@ -682,3 +682,4 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 - `docs/methodology.md`
 - `docs/ai_patterns.md`
 - `.agents/skills/sillytavern-extension-builder/references/writing-extensions-reference.md`
+

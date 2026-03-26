@@ -10,17 +10,17 @@ Establish a deterministic, document-driven way to run multi-session, AI-assisted
 1) **Document-driven**: handoff -> scope -> design -> tracker -> todo.  
 2) **Continuity first**: every session ends with a canonical `handoff.md`.  
 3) **Small slices**: ship in <=1-day steps with measurable acceptance criteria.  
-4) **Gated quality**: code is "done" only when it passes all gates in §6-§10.  
+4) **Gated quality**: code is "done" only when it passes all gates in Section 6-Section 10.  
 5) **Traceability**: each change maps to a tracker item and design section.  
-6) **Security by habit**: secrets hygiene is mandatory (see §8).  
+6) **Security by habit**: secrets hygiene is mandatory (see Section 8).  
 
 ## 3. Session workflow (high level)
-1) Read docs in order: `handoff.md` -> `scope.md` -> `design.md` -> `tracker.md` -> `todo.md` if present (authority in §4).  
-2) Produce an **Opening Brief** (§12 template).  
+1) Read docs in order: `handoff.md` -> `scope.md` -> `design.md` -> `tracker.md` -> `todo.md` if present (authority in Section 4).  
+2) Produce an **Opening Brief** (Section 12 template).  
 3) Plan a <=1-day slice tied to acceptance criteria.  
 4) Implement with diffs/full files ready to paste.  
 5) Validate: commands + expected results.  
-6) Close with a **Closing Report** (§12) and update `handoff.md` (§4 schema).
+6) Close with a **Closing Report** (Section 12) and update `handoff.md` (Section 4 schema).
 
 ## 4. Handoff schema (canonical)
 Every session must leave a `handoff.md` with exactly these sections:
@@ -31,7 +31,7 @@ Every session must leave a `handoff.md` with exactly these sections:
 - **Validation & Evidence** - tests/coverage/benchmarks + where to find logs.  
 - **Risks & Unknowns** - each with owner and review date.  
 - **Next Steps** - 1-3 steps, each <=1 day.  
-- **Status Summary** - glyph (⚪/🔵/✅/⚠️) + % complete.
+- **Status Summary** - glyph ([ ]/[~]/[v]/[!]) + % complete.
 
 > Use the exact headings above. No custom sections.
 
@@ -46,8 +46,8 @@ A change is **Done** only if all are true:
 - Coverage target on changed lines met (default 80% unless project overrides).  
 - Security scans clean (secrets/SCA) or documented exception with owner/date.  
 - `tracker.md` updated (status, %, evidence links).  
-- `handoff.md` updated using §4 schema.  
-- PR checklist in §10 completed.
+- `handoff.md` updated using Section 4 schema.  
+- PR checklist in Section 10 completed.
 
 ## 7. Testing & quality
 - **Unit** for every function with nontrivial logic.  
@@ -71,7 +71,7 @@ A standard pipeline (order may vary by stack):
 Failures must be copied into the session and summarized in `handoff.md`.
 
 ## 10. Branching & PRs
-- Branch pattern: `feature/<slug>`; urgent fixes use `hotfix/<slug>`.  
+- Branch pattern: `codex/<slug>`; urgent fixes may use `codex/hotfix-<slug>` if needed.  
 - Conventional commits recommended.  
 - Open a **draft PR** early; keep it small and cohesive.  
 - **PR checklist** (must be ticked before merge):
@@ -83,7 +83,7 @@ Failures must be copied into the session and summarized in `handoff.md`.
 
 ## 11. Error recovery & blockers
 - When ambiguous, pick the safest default, proceed, and flag in `handoff.md`.  
-- When blocked, mark ⚠️ with owner/unblocker, choose a parallel task, and document in `handoff.md`.
+- When blocked, mark [!] with owner/unblocker, choose a parallel task, and document in `handoff.md`.
 
 ## 12. Templates (render exactly)
 
