@@ -7,37 +7,37 @@
 Establish a deterministic, document-driven way to run multi-session, AI-assisted development with preserved context, explicit gates, and reproducible outputs.
 
 ## 2. Principles
-1) **Document-driven**: scope → design → tracker → todo → handoff.  
+1) **Document-driven**: handoff -> scope -> design -> tracker -> todo.  
 2) **Continuity first**: every session ends with a canonical `handoff.md`.  
-3) **Small slices**: ship in ≤1-day steps with measurable acceptance criteria.  
-4) **Gated quality**: code is “done” only when it passes all gates in §6–§10.  
+3) **Small slices**: ship in <=1-day steps with measurable acceptance criteria.  
+4) **Gated quality**: code is "done" only when it passes all gates in §6-§10.  
 5) **Traceability**: each change maps to a tracker item and design section.  
 6) **Security by habit**: secrets hygiene is mandatory (see §8).  
 
 ## 3. Session workflow (high level)
-1) Read docs in order (authority in §4).  
+1) Read docs in order: `handoff.md` -> `scope.md` -> `design.md` -> `tracker.md` -> `todo.md` if present (authority in §4).  
 2) Produce an **Opening Brief** (§12 template).  
-3) Plan a ≤1-day slice tied to acceptance criteria.  
+3) Plan a <=1-day slice tied to acceptance criteria.  
 4) Implement with diffs/full files ready to paste.  
 5) Validate: commands + expected results.  
 6) Close with a **Closing Report** (§12) and update `handoff.md` (§4 schema).
 
 ## 4. Handoff schema (canonical)
 Every session must leave a `handoff.md` with exactly these sections:
-- **Context Snapshot** – 3–7 bullets of current state.  
-- **Active Task(s)** – ID + title + acceptance criteria.  
-- **Decisions Made** – brief item + link to design/PR.  
-- **Changes Since Last Session** – file path, ±LOC, one-line rationale.  
-- **Validation & Evidence** – tests/coverage/benchmarks + where to find logs.  
-- **Risks & Unknowns** – each with owner and review date.  
-- **Next Steps** – 1–3 steps, each ≤1 day.  
-- **Status Summary** – glyph (⚪/🔵/✅/⚠️) + % complete.
+- **Context Snapshot** - 3-7 bullets of current state.  
+- **Active Task(s)** - ID + title + acceptance criteria.  
+- **Decisions Made** - brief item + link to design/PR.  
+- **Changes Since Last Session** - file path, +/-LOC, one-line rationale.  
+- **Validation & Evidence** - tests/coverage/benchmarks + where to find logs.  
+- **Risks & Unknowns** - each with owner and review date.  
+- **Next Steps** - 1-3 steps, each <=1 day.  
+- **Status Summary** - glyph (⚪/🔵/✅/⚠️) + % complete.
 
 > Use the exact headings above. No custom sections.
 
 ## 5. Tasks & acceptance
 - Each tracker task must include: scope link, design link, acceptance checks, owner, status glyph, % complete, and date(s).  
-- Acceptance checks are **objective** (e.g., “unit coverage on changed lines ≥80% and all green CI”).
+- Acceptance checks are **objective** (e.g., "unit coverage on changed lines >=80% and all green CI").
 
 ## 6. Definition of Done (DoD)
 A change is **Done** only if all are true:
@@ -52,7 +52,7 @@ A change is **Done** only if all are true:
 ## 7. Testing & quality
 - **Unit** for every function with nontrivial logic.  
 - **Integration** where interfaces meet.  
-- **Changed-lines coverage** ≥80% (adjust by project policy).  
+- **Changed-lines coverage** >=80% (adjust by project policy).  
 - **Benchmarks** only where perf is a requirement; record method + dataset.  
 - **Determinism**: tests must be seed-stable or record seeds in `handoff.md`.
 
@@ -90,22 +90,22 @@ Failures must be copied into the session and summarized in `handoff.md`.
 ### Opening Brief
 ```
 ## Opening Brief
-**Context (from handoff):** …
-**Active task(s) & acceptance criteria:** …
-**Plan for this session (≤1 day):** …
-**Risks/assumptions:** …
-**Expected artifacts:** code/tests/docs …
+**Context (from handoff):** ...
+**Active task(s) & acceptance criteria:** ...
+**Plan for this session (<=1 day):** ...
+**Risks/assumptions:** ...
+**Expected artifacts:** code/tests/docs ...
 ```
 
 ### Closing Report
 ```
 ## Closing Report
-**What changed:** …
-**Validation & Evidence:** …
+**What changed:** ...
+**Validation & Evidence:** ...
 **Status update:** (glyph + %)
-**Decisions made:** …
-**Risks & Unknowns:** …
-**Next steps (≤1 day each):** …
+**Decisions made:** ...
+**Risks & Unknowns:** ...
+**Next steps (<=1 day each):** ...
 ```
 
 ## 13. Versioning & governance
