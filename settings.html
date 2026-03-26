@@ -9,28 +9,28 @@
                 Track the current scene state for one active character and expose debug output for validation.
             </p>
             <div class="sst__settings-row">
-                <input id="scene-state-tracker_enabled" type="checkbox" />
-                <label for="scene-state-tracker_enabled">Enable scene tracking</label>
+                <input id="SST_enabled" type="checkbox" />
+                <label for="SST_enabled">Enable scene tracking</label>
             </div>
             <div class="sst__settings-row">
-                <input id="scene-state-tracker_debug" type="checkbox" />
-                <label for="scene-state-tracker_debug">Enable debug logs</label>
+                <input id="SST_debug" type="checkbox" />
+                <label for="SST_debug">Enable debug logs</label>
             </div>
             <div class="sst__settings-row">
-                <label class="sst__label" for="scene-state-tracker_active_character">
+                <label class="sst__label" for="SST_active_character">
                     Active character name
                 </label>
                 <input
-                    id="scene-state-tracker_active_character"
+                    id="SST_active_character"
                     class="text_pole"
                     type="text"
                     placeholder="Leave blank until T-006"
                 />
             </div>
-            <div id="scene-state-tracker_debug_panel" class="sst__debug-panel">
+            <div id="SST_debug_panel" class="sst__debug-panel">
                 <div class="sst__debug-header">Bootstrap Debug State</div>
-                <div id="scene-state-tracker_status" class="sst__debug-status"></div>
-                <pre id="scene-state-tracker_state" class="sst__debug-state"></pre>
+                <div id="SST_status" class="sst__debug-status"></div>
+                <pre id="SST_state" class="sst__debug-state"></pre>
             </div>
         </div>
     </div>
