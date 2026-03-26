@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "sillytavern-extension-builder": {
+      "source": "davidgibbons/sillytavern-skills",
+      "sourceType": "github",
+      "computedHash": "d6922b9cf921e21ada161017d0c912aa251baf23e2dab9adfe6c2870ec4220a2"
+    }
+  }
+}
