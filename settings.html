@@ -1,0 +1,37 @@
+<div class="extension_block">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>SceneStateTracker</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <p class="sst__copy">
+                Track the current scene state for one active character and expose debug output for validation.
+            </p>
+            <div class="sst__settings-row">
+                <input id="SST_enabled" type="checkbox" />
+                <label for="SST_enabled">Enable scene tracking</label>
+            </div>
+            <div class="sst__settings-row">
+                <input id="SST_debug" type="checkbox" />
+                <label for="SST_debug">Enable debug logs</label>
+            </div>
+            <div class="sst__settings-row">
+                <label class="sst__label" for="SST_active_character">
+                    Active character name
+                </label>
+                <input
+                    id="SST_active_character"
+                    class="text_pole"
+                    type="text"
+                    placeholder="Leave blank until T-006"
+                />
+            </div>
+            <div id="SST_debug_panel" class="sst__debug-panel">
+                <div class="sst__debug-header">Bootstrap Debug State</div>
+                <div id="SST_status" class="sst__debug-status"></div>
+                <pre id="SST_state" class="sst__debug-state"></pre>
+            </div>
+        </div>
+    </div>
+</div>
