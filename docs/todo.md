@@ -1,81 +1,63 @@
 # todo.md
 
 **Session Date:** 2026-03-27
-**Time Budget:** 2-3 hours
-**Session Goal:** Implement the first T-003 slice using verified SillyTavern host events and state exports
+**Time Budget:** 1-2 hours
+**Session Goal:** Refactor T-004 so the extraction engine stays deterministic today but exposes a clean draft-extraction seam for later assistive-hybrid work
 
 ---
 
 ## Active Tasks for This Session
 
-### T-003 - Build turn-pair collector and update trigger flow
+### T-004 - Implement extraction engine and validated scene patch flow
 
 **From tracker.md:**
-- Acceptance criteria:
-  - The extension detects the latest complete user message plus responding character message as one analyzable turn pair
-  - Processing is limited to the active tracked character and current chat session
-  - Duplicate or stale chat events do not trigger duplicate processing for the same turn pair
-  - Overlapping processing is coalesced or rejected safely per `docs/design.md` Section 5.3
-  - Integration-level validation proves turn-pair capture order is correct for representative chat flows
+- Acceptance criteria still in force:
+  - The extraction engine accepts a turn pair and returns a structured scene patch in the project schema, including action and interaction where present
+  - Validation failures produce structured error results and retain the last known good scene state
+  - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
+  - Logs distinguish extraction, validation, and commit-stage failures
+  - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
 
-**Session-specific notes:**
-- Real SillyTavern host research is now complete enough to stop guessing the event boundary
-- Verified host hooks from `E:\AI_Tools\SillyTavern`:
-  - `event_types.CHARACTER_MESSAGE_RENDERED` is emitted after a character message is added/rendered
-  - `event_types.USER_MESSAGE_RENDERED` is emitted after a user message is added/rendered
-  - `event_types.CHAT_CHANGED` is emitted on chat load/switch and should reset collector state
-- Verified host state available to the adapter:
-  - `chat`
-  - `this_chid`
-  - `characters`
-  - `chat_metadata`
-  - `getCurrentChatId()`
-- The collector should derive the latest valid pair from the current `chat` snapshot instead of trusting event args alone
-- Group chats remain out of scope for MVP, so ambiguous contexts should soft-skip rather than trigger aggressive blocking logic
+**Session-specific focus:**
+- Preserve current deterministic extraction behavior
+- Make the draft-extraction boundary explicit and injectable inside `src/core/extraction-engine.js`
+- Keep parse, normalize, validate, and structured-result stages clearly separated
+- Do not add prompt calls or enable hybrid mode yet
 
 **Expected progress this session:**
-- Implement the normalized SillyTavern chat adapter contract in `src/adapters/sillytavern-chat.js`
-- Implement latest-valid-pair selection and dedupe/coalescing behavior in `src/core/turn-pair-collector.js`
-- Add unit/integration-style tests for duplicate, stale, and overlapping event handling
-- Leave extraction out of scope unless needed to exercise the trigger flow
-
-### T-010 - Establish automated test harness and coverage baseline
-
-**Session-specific notes:**
-- `node --test` is already selected and current unit coverage exists for pure modules
-- Only the T-003-related integration test expansion is in scope for this session
-
-**Expected progress this session:**
-- Add the first integration-style validation for turn-pair flow if it directly supports T-003
+- Extract the default deterministic draft extractor into a clearer named boundary
+- Keep `createExtractionEngine()` injectable for future assistive extraction
+- Preserve all current test behavior and structured failure handling
+- Update docs to record that this is an architectural refactor only
 
 ---
 
 ## Session Priorities
 
 **Must complete (P0):**
-- T-003: Turn-pair collector and update trigger flow
+- T-004 seam refactor with no runtime behavior change
 
 **Should complete (P1):**
-- T-010: Minimal integration-test expansion needed to validate T-003
+- Re-run automated validation after the refactor
 
 **Could complete if time (P2):**
-- Document the final soft-fallback behavior once manual validation confirms how ambiguity is surfaced in the host
+- Note likely weak-field candidates for a future assistive-hybrid spike without implementing them
 
 ---
 
 ## Context for This Session
 
 **What happened last session:**
-- Status-only research confirmed the real SillyTavern event and state surfaces relevant to T-003
-- The repo now documents the local host path `E:\AI_Tools\SillyTavern` as read-only integration reference code
-- The uncertainty around the primary reply-ready event is reduced: `CHARACTER_MESSAGE_RENDERED` is the main trigger candidate
+- T-004 landed a deterministic extraction-engine slice with automated tests for happy path, malformed output, validation rejection, and NSFW-relevant fields
+- The branch discussion concluded that a future assistive-hybrid extractor is desirable, but not for the current runtime change set
 
 **Current blockers/dependencies:**
-- Manual validation still needs to confirm that ambiguous host contexts soft-skip cleanly
-- Integration-level validation for stale/duplicate/coalesced processing still needs to be written
+- Manual SillyTavern latency validation still remains for closing T-004
+- The extraction-engine seam should be cleaned up before later assistive-hybrid work to avoid mixing heuristic-specific behavior into the pipeline boundary
 
 **Environment notes:**
 - Test runner: `node --test`
+- Coverage command: `node --test --experimental-test-coverage`
 - External read-only reference repo: `E:\AI_Tools\SillyTavern`
 - Do not modify files under `E:\AI_Tools\SillyTavern` without direct human approval
 
@@ -84,26 +66,24 @@
 ## Success Criteria for This Session
 
 By end of session, we should have:
-- [ ] Adapter contract implemented against verified SillyTavern runtime exports
-- [ ] Collector logic deriving latest valid user + character pairs from `chat`
-- [ ] Dedupe/coalescing behavior covered by tests or documented guard behavior
-- [ ] Validation commands identified for local verification
-- [ ] `docs/tracker.md` updated with progress/evidence
-- [ ] `docs/handoff.md` updated with implementation results and remaining unknowns
+- [ ] Current deterministic extraction behavior preserved
+- [ ] Extraction engine pipeline stages made explicit
+- [ ] Draft extraction made injectable for later assistive-hybrid work
+- [ ] No store/collector/UI behavior regressions introduced
+- [ ] Validation commands identified and ready to run
+- [ ] `docs/design.md`, `docs/tracker.md`, and `docs/handoff.md` aligned with the refactor intent
 
 If everything does not complete:
-- Minimum viable progress is implemented adapter + collector logic with documented remaining soft-fallback caveats
-- Full integration coverage can carry into the following session
+- Minimum viable progress is a no-behavior-change extraction-engine refactor plus updated docs
+- Live-host latency close-out can remain as the final T-004 validation step afterward
 
 ---
 
 ## Time Boxing
 
-- Adapter contract and event wiring: 45-60 minutes
-- Collector pair selection and dedupe logic: 45-60 minutes
-- Tests for stale/duplicate/overlap handling: 30-45 minutes
-- Documentation and handoff updates: 15-20 minutes
-- Buffer: 20-30 minutes
+- Extraction-engine seam refactor: 45-60 minutes
+- Tests and quick regression review: 20-30 minutes
+- Doc and handoff alignment: 10-15 minutes
 
 ---
 
@@ -111,5 +91,6 @@ If everything does not complete:
 
 | Date | Changes | Author |
 |------|---------|--------|
+| 2026-03-27 | Reframed session todo around a no-behavior-change T-004 extraction-engine seam refactor for later assistive-hybrid work | Codex |
 | 2026-03-27 | Reframed next session around verified SillyTavern host hooks for T-003 implementation | Codex |
 | 2026-03-27 | Initial session-scoped todo file for T-003 work | Codex |

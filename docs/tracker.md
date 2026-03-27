@@ -1,6 +1,6 @@
 # tracker.md
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Last updated:** 2026-03-27  
 **Status:** Active task tracking - single source of truth for work items
 
@@ -25,7 +25,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-004 - [feature] Implement extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
-- Status: [ ] 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
+- Status: [~] 85% | Dates: started 2026-03-27, expected by 2026-04-04, last touched 2026-03-27
 - Scope: scope.md Goals, Success Metrics (SLOs)
 - Design: design.md Section 1.2, Section 2.1, Section 2.2, Section 4.2, Section 8.2
 - Acceptance criteria:
@@ -34,9 +34,16 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
   - Logs distinguish extraction, validation, and commit-stage failures
   - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
-- Evidence: Not started in this session; queued as the next implementation slice after T-003 validation close-out
+- Evidence:
+  - `src/core/extraction-engine.js` now builds deterministic draft scene patches from turn-pair text, supports raw string/object draft outputs, normalizes them into the project schema, and returns structured extraction vs. validation failures with latency metadata
+  - `src/core/turn-pair-collector.js` now logs extraction-stage and commit-stage failures distinctly before preserving the last known good state via the scene-state store
+  - `tests/unit/extraction-engine.test.js` covers happy-path extraction, malformed draft output handling, validator rejection behavior, and NSFW-relevant action / interaction / outfit extraction
+  - `tests/integration/turn-pair-collector.test.js` now proves that a later rejected extraction leaves the previously committed scene intact and does not retrigger downstream background/image side effects
+  - `node --test` -> 24/24 passing
+  - `node --test --experimental-test-coverage` -> 24/24 passing, 92.60% lines / 79.37% branches / 90.91% functions overall; `src/core/extraction-engine.js` covered at 85.83% lines / 77.78% branches
 - Dependencies: T-002, T-003
-- Notes: The implementation may use a prompt-based extractor, but its output contract must remain deterministic
+- Notes: The current slice uses a deterministic local parser behind the extraction-engine contract so a future prompt-backed draft generator can plug in without changing downstream validation/commit behavior. Representative live-host latency/manual validation still needs a final pass before closing T-004.
+- Planned follow-up for the current branch: refactor the extraction engine to make the draft-extraction boundary explicit and injectable for a later assistive-hybrid path, while keeping current deterministic behavior unchanged.
 
 ---
 
@@ -266,6 +273,7 @@ No blocked tasks at the moment.
 
 | Date | Changes | Author |
 |------|---------|--------|
+| 2026-03-27 | Updated T-004 notes to reserve an explicit pluggable draft-extraction seam for later assistive-hybrid work without changing current behavior | Codex |
 | 2026-03-27 | Updated schema/task docs for action + interaction scene fields and card-sourced appearance / LoRA prompt generation | Codex |
 | 2026-03-26 | Marked T-002 complete with automated validation evidence and moved T-003 into active focus | Codex |
 | 2026-03-26 | Marked T-001 complete with local SillyTavern validation evidence | Codex |

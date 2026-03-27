@@ -1,6 +1,6 @@
 # design.md
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Last updated:** 2026-03-27  
 **Status:** Living document - updated as architecture evolves  
 **Authority:** Technical decisions source of truth; must align with `scope.md`
@@ -265,6 +265,13 @@ Responsibilities:
 - [v] Decide whether to commit, reject, or partially merge state changes.
 - [x] Call DOM APIs directly.
 - [x] Depend on raw host event payload shapes outside adapter contracts.
+
+Extraction-engine boundary for T-004:
+- The extraction engine should keep a pluggable draft-extraction seam ahead of parse, normalize, and validate stages.
+- The current default draft extractor is deterministic and local.
+- A future assistive-hybrid path may add weak-field detection plus optional prompt-backed field completion behind the same seam.
+- Any future prompt-backed assistance must remain non-authoritative until the merged draft passes normalization and schema validation.
+- Store commits, rejection handling, and downstream side effects must stay outside the extractor boundary.
 
 **State Store Layer:**
 
@@ -680,6 +687,7 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
 | 2026-03-27 | 1.1 | Added appearance/LoRA prompt-source rules, Danbooru-tag prompt design, NSFW action/interaction guidance, and initial Node test-runner selection | Codex |
+| 2026-03-27 | 1.2 | Clarified T-004 extraction-engine boundary to stay pluggable for a later assistive-hybrid extractor without changing current deterministic behavior | Codex |
 | 2026-03-26 | 1.0 | Initial technical design for SceneStateTracker | Codex |
 
 ---

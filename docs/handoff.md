@@ -1,11 +1,12 @@
 # handoff.md
 
 ## Context Snapshot
-- T-001, T-002, and T-003 are now complete, and T-004 is the next implementation slice.
+- T-001, T-002, and T-003 are complete, and T-004 is now in progress with the first extraction-engine slice implemented.
 - The extension no longer waits for `GENERATION_AFTER_COMMANDS`; it now hooks `CHARACTER_MESSAGE_RENDERED` for reply-ready processing and `CHAT_CHANGED` for collector reset.
 - `src/adapters/sillytavern-chat.js` now derives the latest valid turn pair from the live `chat` snapshot using chat/message ids and selected-character context from SillyTavern exports.
 - `src/core/turn-pair-collector.js` now guards against duplicate rendered events, coalesces overlapping work into a queued rerun, and works with scene-state resets on chat change.
-- New tests cover adapter pairing plus integration-style duplicate, overlap, chat-reset collector behavior, and scene-store chat-reset behavior using the Node test runner.
+- `src/core/extraction-engine.js` now builds deterministic scene patches from turn-pair text, parses raw draft outputs, and returns structured extraction/validation results with latency metadata.
+- New tests now cover extraction happy path, malformed draft handling, validator rejection handling, NSFW-relevant scene fields, plus integration-style last-known-good-state preservation after a rejected extraction.
 - Manual SillyTavern validation passed for collector processing, visible logs, and chat-switch reset behavior after the follow-up fix.
 - Group chats remain out of scope for MVP; the current implementation uses a soft fallback that prefers tracked-character name matching and skips ambiguous cases instead of aggressively defending against group-chat contexts.
 - Known limitation: switching away from a chat and later returning does not yet restore that chat's prior SceneStateTracker scene/history; that belongs in later per-chat persistence work.
@@ -20,8 +21,14 @@
 - The initial T-003 fallback rule should prefer the configured active character name when present, otherwise fall back to the currently selected SillyTavern character context, and skip ambiguous pairs rather than aggressively rejecting group-chat contexts (link: docs/design.md Section 3.2)
 - Overlapping `CHARACTER_MESSAGE_RENDERED` events should be single-flight processed with one queued rerun rather than parallel extraction work (link: docs/design.md Section 5.3)
 - Resetting scene/history on chat switch is the correct MVP behavior to prevent cross-chat contamination, even though per-chat restore is not implemented yet (link: docs/design.md Section 5.2)
+- T-004 should keep a deterministic local extraction engine contract now, while leaving room for a future prompt-backed draft generator behind the same parse/validate/commit boundary (link: docs/design.md Section 1.2, docs/design.md Section 2.1)
+- The next T-004 refactor should make the draft-extraction seam explicit and injectable so a later assistive-hybrid extractor can be added without changing current runtime behavior (link: docs/design.md Section 3.2)
 
 ## Changes Since Last Session
+- src/core/extraction-engine.js (+214/-12): Replaced the summary-only stub with a deterministic extraction pipeline that parses raw draft outputs, heuristically extracts scene fields, normalizes them, validates them, and reports latency-aware extraction/validation failures
+- src/core/turn-pair-collector.js (+13/-0): Added explicit extraction-stage and commit-stage warning logs around the existing preserve-last-good-state flow
+- tests/unit/extraction-engine.test.js (+106/-0): Added unit coverage for happy-path extraction, malformed draft output handling, validation failure behavior, and NSFW-relevant scene fields
+- tests/integration/turn-pair-collector.test.js (+71/-0): Added integration-style coverage proving that rejected later extractions preserve the previous committed scene and skip side effects
 - index.js (+updated): Rewired the extension to process on `CHARACTER_MESSAGE_RENDERED`, reset on `CHAT_CHANGED`, pass real SillyTavern runtime exports into the chat adapter, and sync active-character/reset behavior on chat switch
 - src/adapters/sillytavern-chat.js (+149/-1): Implemented snapshot-based turn-pair derivation with active-character filtering and deterministic turn-pair ids
 - src/core/turn-pair-collector.js (+113/-24): Added duplicate suppression, single-flight overlap handling, queued rerun behavior, and explicit chat-reset collector handling
@@ -34,6 +41,10 @@
 - docs/handoff.md (+updated): Captured the current implementation state, decisions, validation evidence, and remaining risks
 
 ## Validation & Evidence
+- `node --test` -> 24/24 passing after the T-004 extraction-engine slice
+- `node --test --experimental-test-coverage` -> 24/24 passing; overall coverage 92.60% lines, 79.37% branches, 90.91% functions; `src/core/extraction-engine.js` covered at 85.83% lines and 77.78% branches
+- Extraction unit coverage now includes happy-path deterministic extraction, malformed raw draft handling, validator rejection behavior, and NSFW-relevant action / interaction / outfit fields
+- Integration-style validation now includes preserving the last known good scene when a later extraction fails, without retriggering background/image side effects
 - `node --test` -> 19/19 passing after the chat-reset follow-up fix
 - `node --test --experimental-test-coverage` -> 18/18 passing; overall coverage 94.92% lines, 78.77% branches, 88.89% functions during the main T-003 implementation pass
 - Unit validation now covers `src/adapters/sillytavern-chat.js` pairing behavior, including tracked-character filtering and missing preceding-user handling
@@ -46,14 +57,16 @@
   - Chat switch reset behavior: PASS after follow-up fix to clear state/history and sync active character
 
 ## Risks & Unknowns
+- Representative live-host latency for T-004 is still inferred from local automated runs rather than a dedicated SillyTavern timing pass, so one final manual validation pass is still needed before closing the task - owner: Human operator + AI assistant - review: 2026-03-28
+- The current extractor is still mostly implemented as one module, so the future assistive-hybrid path will be harder to add cleanly unless the planned T-004 seam-refactor lands first - owner: Human operator + AI assistant - review: 2026-03-28
 - Returning to a previously visited chat does not yet restore that chat's prior SceneStateTracker scene/history, so context is lost until per-chat persistence is implemented - owner: Human operator + AI assistant - review: 2026-03-28
 - Deleted messages are not yet tracked in SceneStateTracker history, so removed messages can leave stale history context until a later cleanup task is implemented - owner: Human operator + AI assistant - review: 2026-03-28
 - Character-card appearance and optional LoRA field conventions still vary across cards and remain a later T-008 concern - owner: Human operator + AI assistant - review: 2026-04-01
 
 ## Next Steps
-1. Start T-004 by replacing the stub extraction engine with a deterministic scene-patch extractor and adding targeted tests for happy-path, malformed draft, and NSFW-relevant extraction behavior.
-2. Plan per-chat scene/history restore under T-005 so returning to a previously visited chat can recover prior SceneStateTracker state without cross-chat mixing.
-3. Add a later follow-up task for deleted-message reconciliation once extraction/state persistence is in place.
+1. Refactor T-004 so the extraction engine exposes an explicit pluggable draft-extraction seam while preserving current deterministic behavior.
+2. Run one focused manual SillyTavern validation pass for T-004 to confirm live extraction logs, stable state commits, and representative latency under real chat activity.
+3. Close T-004 by tightening any heuristics revealed in manual validation, then update tracker evidence/status accordingly.
 
 ## Status Summary
-- [v] 100% - T-003 complete; T-004 is next
+- [~] 85% - T-004 extraction-engine slice implemented and validated in automated tests; live-host close-out remains
