@@ -25,6 +25,7 @@ import {
     EXTENSION_NAME,
     EXTENSION_SETTINGS_KEY,
     initializeSettings,
+    syncSettingsUi,
 } from './src/ui/settings-controller.js';
 import { createLogger } from './src/utils/logger.js';
 
@@ -52,6 +53,15 @@ function syncSettingsToStateStore() {
     }
 
     sceneStateStore.setActiveCharacter(settings.activeCharacter);
+}
+
+function syncActiveCharacterFromChatContext() {
+    const context = turnPairCollector?.getContext();
+    const nextActiveCharacter = String(context?.characterName || '').trim();
+
+    settings.activeCharacter = nextActiveCharacter;
+    syncSettingsUi(settings);
+    sceneStateStore.resetForChat({ activeCharacter: nextActiveCharacter });
 }
 
 async function renderSettings() {
@@ -96,6 +106,7 @@ async function onCharacterMessageRendered(messageId, triggerType) {
 
 function onChatChanged() {
     turnPairCollector.resetForChat();
+    syncActiveCharacterFromChatContext();
     syncDebugPanel();
 }
 
@@ -124,7 +135,11 @@ jQuery(async () => {
         logger,
     });
 
-    syncSettingsToStateStore();
+    if (!settings.activeCharacter) {
+        syncActiveCharacterFromChatContext();
+    } else {
+        syncSettingsToStateStore();
+    }
 
     sceneStateStore.subscribe(() => {
         syncDebugPanel();

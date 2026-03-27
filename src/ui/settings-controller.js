@@ -17,9 +17,7 @@ export function initializeSettings(extensionSettings) {
 }
 
 export function bindSettingsUi({ settings, onSettingsChanged }) {
-    $('#SST_enabled').prop('checked', settings.enabled);
-    $('#SST_debug').prop('checked', settings.debug);
-    $('#SST_active_character').val(settings.activeCharacter);
+    syncSettingsUi(settings);
 
     $('#SST_enabled').on('change', function () {
         settings.enabled = Boolean($(this).prop('checked'));
@@ -35,4 +33,10 @@ export function bindSettingsUi({ settings, onSettingsChanged }) {
         settings.activeCharacter = String($(this).val() || '').trim();
         onSettingsChanged();
     });
+}
+
+export function syncSettingsUi(settings) {
+    $('#SST_enabled').prop('checked', settings.enabled);
+    $('#SST_debug').prop('checked', settings.debug);
+    $('#SST_active_character').val(settings.activeCharacter);
 }

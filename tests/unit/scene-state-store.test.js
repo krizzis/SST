@@ -95,3 +95,33 @@ test('scene-state store rejectUpdate records the provided error payload', () => 
     assert.deepEqual(snapshot.lastError, error);
     assert.equal(snapshot.metrics.rejections, 1);
 });
+
+test('scene-state store resetForChat clears scene, history, errors, and metrics while setting the next active character', () => {
+    const store = createSceneStateStore({ logger: createLoggerStub() });
+    const validPatch = normalizeScenePatch({
+        location: 'tavern',
+        summary: 'Waiting by the hearth.',
+    });
+
+    store.setActiveCharacter('Carmen');
+    store.commitScenePatch(validPatch, { turnPairId: 'tp-1' });
+    store.rejectUpdate({
+        ok: false,
+        stage: 'extraction',
+        reason: 'mock-failure',
+    });
+
+    const result = store.resetForChat({ activeCharacter: 'Kamara' });
+    const snapshot = store.getSnapshot();
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(snapshot.activeCharacter, 'Kamara');
+    assert.equal(snapshot.currentScene, null);
+    assert.deepEqual(snapshot.history, []);
+    assert.equal(snapshot.lastError, null);
+    assert.deepEqual(snapshot.metrics, {
+        commits: 0,
+        noops: 0,
+        rejections: 0,
+    });
+});
