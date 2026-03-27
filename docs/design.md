@@ -269,6 +269,7 @@ Responsibilities:
 Extraction-engine boundary for T-004:
 - The extraction engine should keep a pluggable draft-extraction seam ahead of parse, normalize, and validate stages.
 - The current default draft extractor is deterministic and local.
+- The default extraction pipeline order is `draft extraction -> parse -> normalize -> validate -> structured result`.
 - A future assistive-hybrid path may add weak-field detection plus optional prompt-backed field completion behind the same seam.
 - Any future prompt-backed assistance must remain non-authoritative until the merged draft passes normalization and schema validation.
 - Store commits, rejection handling, and downstream side effects must stay outside the extractor boundary.
@@ -686,6 +687,7 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2026-03-27 | 1.3 | Documented the explicit extraction pipeline stages and clarified that the assistive-hybrid seam is an architectural refactor only, with current deterministic behavior unchanged | Codex |
 | 2026-03-27 | 1.1 | Added appearance/LoRA prompt-source rules, Danbooru-tag prompt design, NSFW action/interaction guidance, and initial Node test-runner selection | Codex |
 | 2026-03-27 | 1.2 | Clarified T-004 extraction-engine boundary to stay pluggable for a later assistive-hybrid extractor without changing current deterministic behavior | Codex |
 | 2026-03-26 | 1.0 | Initial technical design for SceneStateTracker | Codex |

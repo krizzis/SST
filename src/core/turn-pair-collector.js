@@ -17,6 +17,11 @@ export function createTurnPairCollector({
         try {
             const extractionResult = await extractionEngine.extract(turnPair);
             if (!extractionResult.ok) {
+                logger.warn('scene-patch-extraction-failed', {
+                    turnPairId: turnPair.id,
+                    stage: extractionResult.stage,
+                    reason: extractionResult.reason,
+                });
                 sceneStateStore.rejectUpdate(extractionResult);
                 return extractionResult;
             }
@@ -31,6 +36,14 @@ export function createTurnPairCollector({
             if (commitResult.ok && !commitResult.noop) {
                 backgroundAdapter.sync(sceneStateStore.getSnapshot());
                 imagePayloadAdapter.publish(sceneStateStore.getSnapshot());
+            }
+
+            if (!commitResult.ok) {
+                logger.warn('scene-patch-commit-failed', {
+                    turnPairId: turnPair.id,
+                    stage: commitResult.stage,
+                    reason: commitResult.reason,
+                });
             }
 
             if (commitResult.ok) {

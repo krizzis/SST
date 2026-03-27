@@ -200,3 +200,86 @@ test('collector reset clears dedupe state when the active chat changes', async (
     assert.equal(store.getSnapshot().metrics.commits, 1);
     assert.equal(store.getSnapshot().metrics.noops, 1);
 });
+
+test('collector retains the last good scene when a later extraction is rejected', async () => {
+    const logger = createLoggerStub();
+    const store = createSceneStateStore({ logger });
+    const syncedSnapshots = [];
+    const publishedSnapshots = [];
+    let currentMessageId = 1;
+
+    const collector = createTurnPairCollector({
+        chatAdapter: {
+            getContext() {
+                return { chatId: 'chat-1', characterId: 0 };
+            },
+            getLatestTurnPair({ preferredCharacterMessageId }) {
+                currentMessageId = preferredCharacterMessageId;
+
+                if (preferredCharacterMessageId === 1) {
+                    return {
+                        id: 'chat-1:0:1',
+                        chatId: 'chat-1',
+                        userMessageId: 0,
+                        characterMessageId: 1,
+                        userMessage: 'Hi',
+                        characterMessage: 'First valid reply',
+                    };
+                }
+
+                return {
+                    id: 'chat-1:2:3',
+                    chatId: 'chat-1',
+                    userMessageId: 2,
+                    characterMessageId: 3,
+                    userMessage: 'Again',
+                    characterMessage: 'Broken reply',
+                };
+            },
+        },
+        extractionEngine: {
+            async extract() {
+                if (currentMessageId === 1) {
+                    return {
+                        ok: true,
+                        patch: normalizeScenePatch({
+                            summary: 'First valid reply',
+                        }),
+                    };
+                }
+
+                return {
+                    ok: false,
+                    stage: 'extraction',
+                    reason: 'malformed-draft-output',
+                };
+            },
+        },
+        sceneStateStore: store,
+        backgroundAdapter: {
+            sync(snapshot) {
+                syncedSnapshots.push(snapshot.currentScene?.summary || null);
+            },
+        },
+        imagePayloadAdapter: {
+            publish(snapshot) {
+                publishedSnapshots.push(snapshot.currentScene?.summary || null);
+            },
+        },
+        logger,
+    });
+
+    const firstResult = await collector.handleCharacterMessageRendered(1);
+    const secondResult = await collector.handleCharacterMessageRendered(3);
+    const snapshot = store.getSnapshot();
+
+    assert.equal(firstResult.ok, true);
+    assert.equal(secondResult.ok, false);
+    assert.equal(secondResult.stage, 'extraction');
+    assert.equal(snapshot.currentScene.summary, 'First valid reply');
+    assert.equal(snapshot.lastError.reason, 'malformed-draft-output');
+    assert.deepEqual(syncedSnapshots, ['First valid reply']);
+    assert.deepEqual(publishedSnapshots, ['First valid reply']);
+    assert.equal(snapshot.metrics.commits, 1);
+    assert.equal(snapshot.metrics.rejections, 1);
+});

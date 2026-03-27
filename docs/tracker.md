@@ -36,6 +36,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
 - Evidence:
   - `src/core/extraction-engine.js` now builds deterministic draft scene patches from turn-pair text, supports raw string/object draft outputs, normalizes them into the project schema, and returns structured extraction vs. validation failures with latency metadata
+  - The extraction engine pipeline is now explicitly staged as `draft extraction -> parse -> normalize -> validate -> structured result`, with draft extraction remaining injectable for later assistive-hybrid work
   - `src/core/turn-pair-collector.js` now logs extraction-stage and commit-stage failures distinctly before preserving the last known good state via the scene-state store
   - `tests/unit/extraction-engine.test.js` covers happy-path extraction, malformed draft output handling, validator rejection behavior, and NSFW-relevant action / interaction / outfit extraction
   - `tests/integration/turn-pair-collector.test.js` now proves that a later rejected extraction leaves the previously committed scene intact and does not retrigger downstream background/image side effects
@@ -43,7 +44,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - `node --test --experimental-test-coverage` -> 24/24 passing, 92.60% lines / 79.37% branches / 90.91% functions overall; `src/core/extraction-engine.js` covered at 85.83% lines / 77.78% branches
 - Dependencies: T-002, T-003
 - Notes: The current slice uses a deterministic local parser behind the extraction-engine contract so a future prompt-backed draft generator can plug in without changing downstream validation/commit behavior. Representative live-host latency/manual validation still needs a final pass before closing T-004.
-- Planned follow-up for the current branch: refactor the extraction engine to make the draft-extraction boundary explicit and injectable for a later assistive-hybrid path, while keeping current deterministic behavior unchanged.
+- Planned follow-up for the current branch: keep the assistive-hybrid seam disabled until a later task explicitly introduces and validates an optional assistive draft extractor.
 
 ---
 

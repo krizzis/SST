@@ -6,6 +6,7 @@
 - `src/adapters/sillytavern-chat.js` now derives the latest valid turn pair from the live `chat` snapshot using chat/message ids and selected-character context from SillyTavern exports.
 - `src/core/turn-pair-collector.js` now guards against duplicate rendered events, coalesces overlapping work into a queued rerun, and works with scene-state resets on chat change.
 - `src/core/extraction-engine.js` now builds deterministic scene patches from turn-pair text, parses raw draft outputs, and returns structured extraction/validation results with latency metadata.
+- The extraction pipeline is now explicitly staged as draft extraction, parse, normalize, validate, and structured result, while keeping the current deterministic extractor as the default path.
 - New tests now cover extraction happy path, malformed draft handling, validator rejection handling, NSFW-relevant scene fields, plus integration-style last-known-good-state preservation after a rejected extraction.
 - Manual SillyTavern validation passed for collector processing, visible logs, and chat-switch reset behavior after the follow-up fix.
 - Group chats remain out of scope for MVP; the current implementation uses a soft fallback that prefers tracked-character name matching and skips ambiguous cases instead of aggressively defending against group-chat contexts.
@@ -22,7 +23,7 @@
 - Overlapping `CHARACTER_MESSAGE_RENDERED` events should be single-flight processed with one queued rerun rather than parallel extraction work (link: docs/design.md Section 5.3)
 - Resetting scene/history on chat switch is the correct MVP behavior to prevent cross-chat contamination, even though per-chat restore is not implemented yet (link: docs/design.md Section 5.2)
 - T-004 should keep a deterministic local extraction engine contract now, while leaving room for a future prompt-backed draft generator behind the same parse/validate/commit boundary (link: docs/design.md Section 1.2, docs/design.md Section 2.1)
-- The next T-004 refactor should make the draft-extraction seam explicit and injectable so a later assistive-hybrid extractor can be added without changing current runtime behavior (link: docs/design.md Section 3.2)
+- The extraction engine now exposes the draft-extraction seam explicitly so a later assistive-hybrid extractor can be added without changing current runtime behavior; this refactor does not change store, collector, or UI behavior (link: docs/design.md Section 3.2)
 
 ## Changes Since Last Session
 - src/core/extraction-engine.js (+214/-12): Replaced the summary-only stub with a deterministic extraction pipeline that parses raw draft outputs, heuristically extracts scene fields, normalizes them, validates them, and reports latency-aware extraction/validation failures
