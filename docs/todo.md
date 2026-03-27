@@ -31,7 +31,7 @@
   - `chat_metadata`
   - `getCurrentChatId()`
 - The collector should derive the latest valid pair from the current `chat` snapshot instead of trusting event args alone
-- Group-chat scoping still needs conservative filtering during implementation
+- Group chats remain out of scope for MVP, so ambiguous contexts should soft-skip rather than trigger aggressive blocking logic
 
 **Expected progress this session:**
 - Implement the normalized SillyTavern chat adapter contract in `src/adapters/sillytavern-chat.js`
@@ -59,7 +59,7 @@
 - T-010: Minimal integration-test expansion needed to validate T-003
 
 **Could complete if time (P2):**
-- Document the final group-chat scoping rule once the implementation proves which message fields are reliable
+- Document the final soft-fallback behavior once manual validation confirms how ambiguity is surfaced in the host
 
 ---
 
@@ -71,7 +71,7 @@
 - The uncertainty around the primary reply-ready event is reduced: `CHARACTER_MESSAGE_RENDERED` is the main trigger candidate
 
 **Current blockers/dependencies:**
-- Group-chat filtering still needs validation against real message fields during implementation
+- Manual validation still needs to confirm that ambiguous host contexts soft-skip cleanly
 - Integration-level validation for stale/duplicate/coalesced processing still needs to be written
 
 **Environment notes:**
@@ -92,7 +92,7 @@ By end of session, we should have:
 - [ ] `docs/handoff.md` updated with implementation results and remaining unknowns
 
 If everything does not complete:
-- Minimum viable progress is implemented adapter + collector logic with documented remaining group-chat caveats
+- Minimum viable progress is implemented adapter + collector logic with documented remaining soft-fallback caveats
 - Full integration coverage can carry into the following session
 
 ---

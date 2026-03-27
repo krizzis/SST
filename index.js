@@ -2,7 +2,16 @@ import {
     extension_settings,
     renderExtensionTemplateAsync,
 } from '../../../extensions.js';
-import { eventSource, event_types, saveSettingsDebounced } from '../../../../script.js';
+import {
+    chat,
+    characters,
+    chat_metadata,
+    eventSource,
+    event_types,
+    getCurrentChatId,
+    saveSettingsDebounced,
+    this_chid,
+} from '../../../../script.js';
 
 import { createBackgroundAdapter } from './src/adapters/background-adapter.js';
 import { createImagePayloadAdapter } from './src/adapters/image-payload-adapter.js';
@@ -16,6 +25,7 @@ import {
     EXTENSION_NAME,
     EXTENSION_SETTINGS_KEY,
     initializeSettings,
+    syncSettingsUi,
 } from './src/ui/settings-controller.js';
 import { createLogger } from './src/utils/logger.js';
 
@@ -43,6 +53,15 @@ function syncSettingsToStateStore() {
     }
 
     sceneStateStore.setActiveCharacter(settings.activeCharacter);
+}
+
+function syncActiveCharacterFromChatContext() {
+    const context = turnPairCollector?.getContext();
+    const nextActiveCharacter = String(context?.characterName || '').trim();
+
+    settings.activeCharacter = nextActiveCharacter;
+    syncSettingsUi(settings);
+    sceneStateStore.resetForChat({ activeCharacter: nextActiveCharacter });
 }
 
 async function renderSettings() {
@@ -74,15 +93,21 @@ function onAppReady() {
     syncDebugPanel();
 }
 
-async function onGenerationAfterCommands() {
+async function onCharacterMessageRendered(messageId, triggerType) {
     if (!settings.enabled) {
         return;
     }
 
-    const result = await turnPairCollector.processLatestTurnPair();
-    if (!result?.ok) {
+    const result = await turnPairCollector.handleCharacterMessageRendered(messageId, triggerType);
+    if (!result?.ok && result.reason !== 'duplicate-turn-pair' && result.reason !== 'processing-already-in-flight') {
         logger.warn('turn-pair-processing-skipped', result || { reason: 'unknown' });
     }
+}
+
+function onChatChanged() {
+    turnPairCollector.resetForChat();
+    syncActiveCharacterFromChatContext();
+    syncDebugPanel();
 }
 
 jQuery(async () => {
@@ -90,7 +115,13 @@ jQuery(async () => {
     logger = createLogger(EXTENSION_SETTINGS_KEY, { debugEnabled: settings.debug });
     sceneStateStore = createSceneStateStore({ logger });
 
-    const chatAdapter = createSillyTavernChatAdapter();
+    const chatAdapter = createSillyTavernChatAdapter({
+        getChat: () => chat,
+        getCharacters: () => characters,
+        getSelectedCharacterId: () => this_chid,
+        getChatMetadata: () => chat_metadata,
+        getCurrentChatId,
+    });
     const extractionEngine = createExtractionEngine({ logger });
     const backgroundAdapter = createBackgroundAdapter({ logger });
     const imagePayloadAdapter = createImagePayloadAdapter({ logger });
@@ -104,7 +135,11 @@ jQuery(async () => {
         logger,
     });
 
-    syncSettingsToStateStore();
+    if (!settings.activeCharacter) {
+        syncActiveCharacterFromChatContext();
+    } else {
+        syncSettingsToStateStore();
+    }
 
     sceneStateStore.subscribe(() => {
         syncDebugPanel();
@@ -113,5 +148,6 @@ jQuery(async () => {
     await renderSettings();
 
     eventSource.on(event_types.APP_READY, onAppReady);
-    eventSource.on(event_types.GENERATION_AFTER_COMMANDS, onGenerationAfterCommands);
+    eventSource.on(event_types.CHAT_CHANGED, onChatChanged);
+    eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, onCharacterMessageRendered);
 });

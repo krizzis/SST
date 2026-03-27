@@ -43,6 +43,18 @@ export function createSceneStateStore({ logger }) {
             return cloneState(state);
         },
 
+        resetForChat({ activeCharacter = '' } = {}) {
+            state = {
+                ...cloneState(DEFAULT_STATE),
+                activeCharacter,
+            };
+
+            logger.info('scene-state-reset', { activeCharacter });
+            notify();
+
+            return { ok: true };
+        },
+
         setActiveCharacter(activeCharacter) {
             state = {
                 ...state,
