@@ -29,7 +29,7 @@ use sillytavern-extension-builder skill
 
 # 0) Ground Rules & Process Authority
 
-**Process gates and schemas are defined in `methodology.md` (SSOT):**
+**Process gates and schemas are defined in `docs/methodology.md` (SSOT):**
 - Session workflow: §3
 - Handoff schema (8 sections, exact headings): §4
 - Task acceptance criteria: §5
@@ -80,7 +80,7 @@ Read these documents in order to understand the current state:
 
 # 2) Opening Brief (start EVERY session with this)
 
-Use this exact structure (from methodology.md §12):
+Use this exact structure (from docs/methodology.md §12):
 
 ## Opening Brief
 **Context Summary:** [2-3 sentences synthesizing current state from handoff.md]
@@ -143,6 +143,8 @@ Best for: production multi-server deployments
 Best for: public read-heavy APIs
 
 **Recommendation:** Given scope.md mentions production use and design.md already uses Redis for sessions, **B (Redis)** keeps infrastructure consistent and meets the SLO. Agree?
+
+Create a new branch before starting write code for this session. All changes during this session should be done only in this created branch if not directly allowed by human operator
 ```
 
 ## Provide Complete, Reviewable Code
@@ -210,7 +212,7 @@ Coverage: 92% statements, 88% branches, 100% functions
 
 **Pass Criteria:**
 - All 4 tests green
-- Coverage ≥80% (methodology.md §7)
+- Coverage ≥80% (docs/methodology.md §7)
 - Branches coverage ≥80% (proves both allowed/blocked paths tested)
 
 **If It Fails:**
@@ -283,7 +285,7 @@ This fixes all four issues and stays under 50MB heap for any file size.
 4. **Structured logs?** JSON format for parsing? Include correlation IDs?
 
 **Recommended approach** (based on scope.md mentioning production use):
-- Structured JSON logs to stdout (methodology.md §8 says no PII)
+- Structured JSON logs to stdout (docs/methodology.md §8 says no PII)
 - Log levels: INFO (payment initiated/completed), ERROR (failures with sanitized details), DEBUG (off by default)
 - Include: timestamp, correlationId, userId (hashed), amount, status, duration
 - Use existing logger (Winston, per design.md §2.3)
@@ -425,7 +427,7 @@ npm test -- src/auth/login.test.js
 Tests: 3 passed, 3 total
 ```
 
-Once green, this satisfies acceptance criteria (all tests pass, methodology.md §6).
+Once green, this satisfies acceptance criteria (all tests pass, docs/methodology.md §6).
 ```
 
 ---
@@ -442,7 +444,7 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 2. **Expected results** with specific thresholds
    ```
    Tests: 24/24 passing
-   Coverage: 87% statements, 82% branches (≥80% required per methodology.md §7)
+   Coverage: 87% statements, 82% branches (≥80% required per docs/methodology.md §7)
    ```
 
 3. **How to interpret outputs**
@@ -465,7 +467,7 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 
 ---
 
-# 7) Session Close (render exactly; mirrors methodology.md §12)
+# 7) Session Close (render exactly; mirrors docs/methodology.md §12)
 
 **At end of session, always provide:**
 
@@ -477,7 +479,7 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 **Risks & Unknowns:** [Anything uncertain + owner + review date]
 **Next Steps:** [1-3 ordered steps, each ≤1 day]
 
-**Updated handoff.md (canonical schema from methodology.md §4):**
+**Updated handoff.md (canonical schema from docs/methodology.md §4):**
 ```markdown
 # handoff.md
 
@@ -555,7 +557,7 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 
 **When blocked:**
 1. Mark task as ⚠️ in status
-2. Identify owner/unblocker (methodology.md §11)
+2. Identify owner/unblocker (docs/methodology.md §11)
 3. Propose parallel work to maintain velocity
 4. Document blocker in handoff.md → Risks & Unknowns
 
@@ -575,27 +577,27 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 
 # 9) Quality Reminders (reference SSOT)
 
-**Before declaring "done," verify against methodology.md §6 (DoD):**
+**Before declaring "done," verify against docs/methodology.md §6 (DoD):**
 - [ ] Implements design section referenced by task
 - [ ] Lints clean; all tests pass
 - [ ] Coverage ≥80% on changed lines
 - [ ] Security scans clean (or documented exception)
 - [ ] tracker.md updated (status, %, evidence)
 - [ ] handoff.md updated with canonical schema
-- [ ] PR checklist (methodology.md §10) will be satisfied
+- [ ] PR checklist (docs/methodology.md §10) will be satisfied
 
-**Testing expectations (methodology.md §7):**
+**Testing expectations (docs/methodology.md §7):**
 - Unit tests for all non-trivial logic
 - Integration tests where systems meet
 - Changed-lines coverage ≥80% (project may override)
 - Tests are deterministic (no flaky tests)
 
-**Security non-negotiables (methodology.md §8):**
+**Security non-negotiables (docs/methodology.md §8):**
 - No secrets in code (use .env, never commit)
 - Run pre-commit hooks and SCA scans
 - If secret leaked: flag immediately, rotate, document
 
-**CI must pass (methodology.md §9):**
+**CI must pass (docs/methodology.md §9):**
 - Lint → Build → Unit (coverage) → Secret scan → Integration
 - Failures must be copied and summarized in handoff.md
 
@@ -609,7 +611,7 @@ Once green, this satisfies acceptance criteria (all tests pass, methodology.md �
 - Avoid creativity where it harms reproducibility
 
 **Reference, don't duplicate:**
-- Link to methodology.md sections instead of restating rules
+- Link to docs/methodology.md sections instead of restating rules
 - Use exact schema headings from SSOT
 - Never invent new process gates
 
@@ -639,7 +641,7 @@ Load docs in SSOT order (handoff → scope → design → tracker). Produce only
 
 **Review-only session:**
 ```
-Load docs in SSOT order. Review latest PR diff against acceptance criteria (tracker.md) and quality gates (methodology.md §§6-10). Provide pass/fail verdict with specific issues and fixes. No new code.
+Load docs in SSOT order. Review latest PR diff against acceptance criteria (docs/tracker.md) and quality gates (docs/methodology.md §§6-10). Provide pass/fail verdict with specific issues and fixes. No new code.
 ```
 
 **Investigation/Spike session:**
