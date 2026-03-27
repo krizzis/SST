@@ -23,31 +23,6 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## Active Tasks
 
-## T-003 - [feature] Build turn-pair collector and update trigger flow
-- Owner: Human operator + AI assistant
-- Status: [~] 70% | Dates: started 2026-03-27, expected by 2026-04-01, last touched 2026-03-27
-- Scope: scope.md In Scope, Constraints & Assumptions
-- Design: design.md Section 1.2, Section 3.1, Section 3.2, Section 8.3
-- Acceptance criteria:
-  - The extension detects the latest complete user message plus responding character message as one analyzable turn pair
-  - Processing is limited to the active tracked character and current chat session
-  - Duplicate or stale chat events do not trigger duplicate processing for the same turn pair
-  - Overlapping processing is coalesced or rejected safely per design.md Section 5.3
-  - Integration-level validation proves turn-pair capture order is correct for representative chat flows
- - Evidence:
-   - Status-only session verified real SillyTavern host hooks in `E:\AI_Tools\SillyTavern`; `public/scripts/events.js` defines `CHAT_CHANGED`, `USER_MESSAGE_RENDERED`, and `CHARACTER_MESSAGE_RENDERED`, and `public/script.js` emits `CHARACTER_MESSAGE_RENDERED` after message render while exporting `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` for adapter reads
-   - `src/adapters/sillytavern-chat.js` now derives the latest valid user + character pair from the current `chat` snapshot, keyed by chat/message ids and filtered against the active tracked character name when available
-   - `src/core/turn-pair-collector.js` now deduplicates processed pairs, coalesces overlapping work into a queued rerun, and resets collector state on chat change
-   - `index.js` now wires T-003 to `event_types.CHARACTER_MESSAGE_RENDERED` and `event_types.CHAT_CHANGED` instead of `GENERATION_AFTER_COMMANDS`
-   - `node --test` -> 18/18 passing
-   - `node --test --experimental-test-coverage` -> 18/18 passing, 94.92% lines / 78.77% branches / 88.89% functions overall; `src/adapters/sillytavern-chat.js` 86.39% lines and `src/core/turn-pair-collector.js` 87.79% lines
-- Dependencies: T-001
-- Notes: This task still stops short of final completion because manual host validation remains open. Group chats stay out of scope for MVP; the current implementation uses a soft fallback that prefers active-character name matching when available, otherwise falls back to the selected SillyTavern character context, and should skip ambiguous cases rather than aggressively rejecting group-chat contexts.
-
----
-
-## Backlog (Not Started)
-
 ## T-004 - [feature] Implement extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
 - Status: [ ] 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
@@ -59,11 +34,13 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
   - Logs distinguish extraction, validation, and commit-stage failures
   - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
-- Evidence: Will be added when started
+- Evidence: Not started in this session; queued as the next implementation slice after T-003 validation close-out
 - Dependencies: T-002, T-003
 - Notes: The implementation may use a prompt-based extractor, but its output contract must remain deterministic
 
 ---
+
+## Backlog (Not Started)
 
 ## T-005 - [feature] Implement canonical scene-state store with history and persistence
 - Owner: Human operator + AI assistant
@@ -79,6 +56,33 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 - Evidence: Will be added when started
 - Dependencies: T-002, T-004
 - Notes: This is the single source of truth for UI, background changes, and image payload generation
+
+---
+
+## Completed Tasks
+
+## T-003 - [feature] Build turn-pair collector and update trigger flow
+- Owner: Human operator + AI assistant
+- Status: [v] 100% | Dates: started 2026-03-27, completed 2026-03-27, last touched 2026-03-27
+- Scope: scope.md In Scope, Constraints & Assumptions
+- Design: design.md Section 1.2, Section 3.1, Section 3.2, Section 8.3
+- Acceptance criteria met:
+  - The extension detects the latest complete user message plus responding character message as one analyzable turn pair
+  - Processing is limited to the active tracked character and current chat session
+  - Duplicate or stale chat events do not trigger duplicate processing for the same turn pair
+  - Overlapping processing is coalesced or rejected safely per design.md Section 5.3
+  - Integration-level validation proves turn-pair capture order is correct for representative chat flows
+- Evidence:
+  - Status-only session verified real SillyTavern host hooks in `E:\AI_Tools\SillyTavern`; `public/scripts/events.js` defines `CHAT_CHANGED`, `USER_MESSAGE_RENDERED`, and `CHARACTER_MESSAGE_RENDERED`, and `public/script.js` emits `CHARACTER_MESSAGE_RENDERED` after message render while exporting `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()` for adapter reads
+  - `src/adapters/sillytavern-chat.js` derives the latest valid user + character pair from the current `chat` snapshot, keyed by chat/message ids and filtered against the active tracked character name when available
+  - `src/core/turn-pair-collector.js` deduplicates processed pairs, coalesces overlapping work into a queued rerun, and resets collector state on chat change
+  - `src/core/scene-state-store.js` now resets current scene, history, last error, and metrics on chat switch so chats do not mix state
+  - `index.js` wires T-003 to `event_types.CHARACTER_MESSAGE_RENDERED` and `event_types.CHAT_CHANGED` instead of `GENERATION_AFTER_COMMANDS`
+  - `node --test` -> 19/19 passing after the chat-reset fix
+  - `node --test --experimental-test-coverage` -> 18/18 passing, 94.92% lines / 78.77% branches / 88.89% functions overall during the main T-003 implementation pass
+  - Manual SillyTavern validation: collector processed messages correctly, logs were visible in the extension UI and dev console, and chat switch reset behavior passed after the follow-up fix
+- Dependencies: T-001
+- Notes: Group chats stay out of scope for MVP; the implementation uses a soft fallback that prefers active-character name matching when available, otherwise falls back to the selected SillyTavern character context, and should skip ambiguous cases rather than aggressively rejecting group-chat contexts. Known limitation: when the user switches away from a chat and later returns, prior SceneStateTracker scene/history for that chat is not yet restored. Deleted-message tracking is also not handled yet and is deferred to a later task.
 
 ---
 
@@ -207,8 +211,6 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 No blocked tasks at the moment.
 
 ---
-
-## Completed Tasks
 
 ## T-002 - [feature] Define scene-state schema and normalization rules
 - Owner: Human operator + AI assistant
