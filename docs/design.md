@@ -246,7 +246,7 @@ Verified integration baseline for T-003:
 - Read current runtime state from exported SillyTavern values: `chat`, `this_chid`, `characters`, `chat_metadata`, and `getCurrentChatId()`.
 - Prefer deriving the latest valid user + character pair from the current `chat` snapshot rather than trusting event payloads alone.
 - Treat message array index / `mesid` as the practical message identifier for pairing and deduplication.
-- Group-chat character scoping still needs a conservative rule based on actual message fields and must be validated during T-003 implementation.
+- Group chats remain out of scope for MVP. For T-003, use a soft fallback: prefer the configured active character name when available, otherwise fall back to the selected SillyTavern character context, and skip processing when the latest pair is ambiguous.
 
 Responsibilities:
 - [v] Read current chat/session context, message data, and active-character card metadata.
