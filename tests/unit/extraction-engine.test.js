@@ -74,6 +74,41 @@ test('extraction engine normalizes a valid provider response into the canonical 
     });
 });
 
+test('extraction engine accepts a partial outfit object from the provider and normalizes it', async () => {
+    const engine = createExtractionEngine({
+        logger: createLoggerStub(),
+        provider: {
+            async extract() {
+                return {
+                    ok: true,
+                    rawText: JSON.stringify({
+                        location: 'living room',
+                        emotion: 'submissive',
+                        pose: 'kneeling',
+                        action: 'oral sex',
+                        interaction: 'oral sex',
+                        outfit: {
+                            primary: 'pink tank top, denim shorts',
+                        },
+                        summary: 'Abby kneels in front of Chris in the living room.',
+                    }),
+                };
+            },
+        },
+    });
+
+    const result = await engine.extract(createTurnPair({
+        userMessage: 'Get on your knees.',
+        characterMessage: 'Abby kneels in front of Chris in the living room.',
+    }));
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.patch.outfit, {
+        primary: 'pink_tank_top',
+        details: ['denim_shorts'],
+    });
+});
+
 test('extraction engine returns a parse-stage rejection for malformed JSON', async () => {
     const engine = createExtractionEngine({
         logger: createLoggerStub(),

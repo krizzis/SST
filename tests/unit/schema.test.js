@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createEmptyScenePatch, validateScenePatch } from '../../src/core/schema.js';
+import { createEmptyScenePatch, validateExtractionPayload, validateScenePatch } from '../../src/core/schema.js';
 
 test('validateScenePatch accepts the canonical empty scene patch', () => {
     assert.deepEqual(validateScenePatch(createEmptyScenePatch()), { ok: true });
@@ -120,5 +120,39 @@ test('validateScenePatch rejects malformed outfit values and summary types', () 
     assert.deepEqual(validateScenePatch(invalidSummary), {
         ok: false,
         reason: 'summary-must-be-a-string',
+    });
+});
+
+test('validateExtractionPayload accepts partial outfit objects from the extractor', () => {
+    assert.deepEqual(validateExtractionPayload({
+        location: 'living room',
+        emotion: 'overwhelmed',
+        pose: 'kneeling',
+        action: 'oral sex',
+        interaction: 'oral sex',
+        outfit: {
+            primary: 'pink tank top, denim shorts',
+        },
+        summary: 'Abby kneels in front of Chris.',
+    }), {
+        ok: true,
+    });
+});
+
+test('validateExtractionPayload still rejects malformed outfit object details', () => {
+    assert.deepEqual(validateExtractionPayload({
+        location: 'living room',
+        emotion: 'overwhelmed',
+        pose: 'kneeling',
+        action: 'oral sex',
+        interaction: 'oral sex',
+        outfit: {
+            primary: 'pink tank top',
+            details: 'denim shorts',
+        },
+        summary: 'Abby kneels in front of Chris.',
+    }), {
+        ok: false,
+        reason: 'outfit.details-must-be-an-array',
     });
 });

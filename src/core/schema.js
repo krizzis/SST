@@ -97,7 +97,29 @@ function validateFlexibleOutfit(value) {
         return { ok: true };
     }
 
-    return validateOutfit(value);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { ok: false, reason: 'outfit-must-be-a-string-or-object' };
+    }
+
+    if ('primary' in value && typeof value.primary !== 'string') {
+        return { ok: false, reason: 'outfit.primary-must-be-a-string' };
+    }
+
+    if ('details' in value) {
+        if (!Array.isArray(value.details)) {
+            return { ok: false, reason: 'outfit.details-must-be-an-array' };
+        }
+
+        if (value.details.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)) {
+            return { ok: false, reason: 'outfit.details-must-contain-non-empty-strings' };
+        }
+    }
+
+    if (!('primary' in value) && !('details' in value)) {
+        return { ok: false, reason: 'outfit-must-include-primary-or-details' };
+    }
+
+    return { ok: true };
 }
 
 export function validateExtractionPayload(payload) {
