@@ -93,3 +93,23 @@ test('normalizeScenePatch canonicalizes nsfw outfit and interaction states for p
         details: ['leather_gloves', 'topless'],
     });
 });
+
+test('normalizeScenePatch drops stable appearance traits from outfit data and accepts string details', () => {
+    const patch = normalizeScenePatch({
+        location: 'Chris\'s house',
+        emotion: 'needy',
+        pose: 'kneeling',
+        action: 'oral sex',
+        interaction: 'oral sex',
+        outfit: {
+            primary: 'Pink hair in loose waves past shoulders',
+            details: 'Lightweight cotton tank top (pale pink), short denim shorts, bare feet on floor',
+        },
+        summary: 'Abby protests softly after being stopped.',
+    });
+
+    assert.deepEqual(patch.outfit, {
+        primary: 'lightweight_cotton_tank_top_pale_pink',
+        details: ['bare_feet_on_floor', 'short_denim_shorts'],
+    });
+});

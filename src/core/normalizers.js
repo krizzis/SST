@@ -49,6 +49,18 @@ const OUTFIT_TAG_SYNONYMS = [
     { key: 'lingerie', aliases: ['lingerie', 'underwear', 'bra and panties'] },
 ];
 
+const APPEARANCE_OUTFIT_NOISE_PATTERNS = [
+    /\bhair\b/i,
+    /\beyes?\b/i,
+    /\bface\b/i,
+    /\bskin\b/i,
+    /\bbody\b/i,
+    /\bfigure\b/i,
+    /\bbreasts?\b/i,
+    /\bchest\b/i,
+    /\bcurves?\b/i,
+];
+
 function normalizeWhitespace(value) {
     return String(value ?? '').trim().replace(/\s+/g, ' ');
 }
@@ -129,14 +141,31 @@ function dedupeSortedTags(values) {
     return [...new Set(values.filter(Boolean))].sort();
 }
 
+function isAppearanceNoise(part) {
+    const normalizedTag = normalizeOutfitTag(part);
+    if (['nude', 'topless', 'bottomless', 'open_clothes', 'lingerie'].includes(normalizedTag)) {
+        return false;
+    }
+
+    return APPEARANCE_OUTFIT_NOISE_PATTERNS.some((pattern) => pattern.test(part));
+}
+
 function normalizeOutfit(outfit) {
     const rawText = typeof outfit === 'object' && outfit !== null
-        ? [outfit.primary, ...(Array.isArray(outfit.details) ? outfit.details : [])].join(', ')
+        ? [
+            outfit.primary,
+            ...(Array.isArray(outfit.details)
+                ? outfit.details
+                : typeof outfit.details === 'string'
+                    ? [outfit.details]
+                    : []),
+        ].join(', ')
         : outfit;
     const parts = normalizeWhitespace(rawText)
         .split(/[,;]|\band\b/gi)
         .map((part) => normalizeWhitespace(part))
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter((part) => !isAppearanceNoise(part));
 
     if (parts.length === 0) {
         return {

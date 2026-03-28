@@ -106,6 +106,12 @@ function validateFlexibleOutfit(value) {
     }
 
     if ('details' in value) {
+        if (typeof value.details === 'string') {
+            return value.details.trim().length > 0
+                ? { ok: true }
+                : { ok: false, reason: 'outfit.details-must-be-an-array-or-non-empty-string' };
+        }
+
         if (!Array.isArray(value.details)) {
             return { ok: false, reason: 'outfit.details-must-be-an-array' };
         }

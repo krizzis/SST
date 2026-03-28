@@ -148,11 +148,28 @@ test('validateExtractionPayload still rejects malformed outfit object details', 
         interaction: 'oral sex',
         outfit: {
             primary: 'pink tank top',
-            details: 'denim shorts',
+            details: 42,
         },
         summary: 'Abby kneels in front of Chris.',
     }), {
         ok: false,
         reason: 'outfit.details-must-be-an-array',
+    });
+});
+
+test('validateExtractionPayload accepts string outfit details from the extractor', () => {
+    assert.deepEqual(validateExtractionPayload({
+        location: 'living room',
+        emotion: 'overwhelmed',
+        pose: 'kneeling',
+        action: 'oral sex',
+        interaction: 'oral sex',
+        outfit: {
+            primary: 'pink hair in loose waves past shoulders',
+            details: 'lightweight cotton tank top, short denim shorts',
+        },
+        summary: 'Abby kneels in front of Chris.',
+    }), {
+        ok: true,
     });
 });
