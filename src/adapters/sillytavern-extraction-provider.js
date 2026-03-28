@@ -1,6 +1,6 @@
 export function createSillyTavernExtractionProvider({ generateQuietPrompt }) {
     return {
-        async extract({ prompt, context, jsonSchema }) {
+        async extract({ prompt, context }) {
             if (typeof generateQuietPrompt !== 'function') {
                 return {
                     ok: false,
@@ -13,7 +13,6 @@ export function createSillyTavernExtractionProvider({ generateQuietPrompt }) {
             try {
                 const rawText = await generateQuietPrompt({
                     quietPrompt: prompt,
-                    jsonSchema,
                     trimToSentence: false,
                 });
 

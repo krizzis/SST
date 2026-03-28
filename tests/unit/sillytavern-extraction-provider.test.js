@@ -27,9 +27,10 @@ test('sillytavern extraction provider returns model-call failure when generateQu
 
 test('sillytavern extraction provider wraps successful quiet prompt responses', async () => {
     const provider = createSillyTavernExtractionProvider({
-        generateQuietPrompt: async ({ quietPrompt, jsonSchema }) => {
+        generateQuietPrompt: async ({ quietPrompt, trimToSentence, jsonSchema }) => {
             assert.equal(quietPrompt, 'Extract scene state.');
-            assert.deepEqual(jsonSchema, { type: 'object' });
+            assert.equal(trimToSentence, false);
+            assert.equal(jsonSchema, undefined);
             return '{"summary":"ok"}';
         },
     });
@@ -39,7 +40,6 @@ test('sillytavern extraction provider wraps successful quiet prompt responses', 
         context: {
             chatId: 'chat-1',
         },
-        jsonSchema: { type: 'object' },
     });
 
     assert.deepEqual(result, {
