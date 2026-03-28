@@ -1,7 +1,7 @@
 # tracker.md
 
-**Version:** 1.2  
-**Last updated:** 2026-03-27  
+**Version:** 1.3  
+**Last updated:** 2026-03-28  
 **Status:** Active task tracking - single source of truth for work items
 
 ---
@@ -23,20 +23,21 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## Active Tasks
 
-## T-004 - [feature] Implement extraction engine and validated scene patch flow
+## T-004 - [feature] Implement LLM-backed extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
 - Status: [ ] 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
 - Scope: scope.md Goals, Success Metrics (SLOs)
 - Design: design.md Section 1.2, Section 2.1, Section 2.2, Section 4.2, Section 8.2
 - Acceptance criteria:
-  - The extraction engine accepts a turn pair and returns a structured scene patch in the project schema, including action and interaction where present
-  - Validation failures produce structured error results and retain the last known good scene state
+  - The extraction engine accepts a turn pair, routes it through an LLM extraction provider, and returns a scene patch constrained to the project schema, including action and interaction where present
+  - Malformed or unusable model output becomes a structured rejection at the `model-call`, `parse`, or `validation` stage without corrupting the last known good scene state
+  - Schema-valid model output is normalized and can be committed safely to the scene-state store
   - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
-  - Logs distinguish extraction, validation, and commit-stage failures
-  - Tests cover happy-path extraction, malformed output handling, rejected patch behavior, and NSFW-tag-relevant scene fields
+  - Logs distinguish model-call, parse, validation, and commit-stage failures
+  - Tests cover valid extraction, malformed JSON or shape handling, missing-field validation failures, rejected patch behavior, and NSFW-tag-relevant normalized scene fields
 - Evidence: Not started in this session; queued as the next implementation slice after T-003 validation close-out
 - Dependencies: T-002, T-003
-- Notes: The implementation may use a prompt-based extractor, but its output contract must remain deterministic
+- Notes: The extraction provider is intentionally probabilistic, but its accepted post-validation contract must remain deterministic after normalization
 
 ---
 
@@ -266,6 +267,7 @@ No blocked tasks at the moment.
 
 | Date | Changes | Author |
 |------|---------|--------|
+| 2026-03-28 | Reframed T-004 around LLM-backed extraction, staged failures, and deterministic post-validation behavior | Codex |
 | 2026-03-27 | Updated schema/task docs for action + interaction scene fields and card-sourced appearance / LoRA prompt generation | Codex |
 | 2026-03-26 | Marked T-002 complete with automated validation evidence and moved T-003 into active focus | Codex |
 | 2026-03-26 | Marked T-001 complete with local SillyTavern validation evidence | Codex |
