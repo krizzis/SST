@@ -1,7 +1,7 @@
 # scope.md
 
-**Version:** 1.1  
-**Last updated:** 2026-03-27  
+**Version:** 1.2  
+**Last updated:** 2026-03-28  
 **Status:** Active - defines project boundaries and success criteria
 
 ---
@@ -14,7 +14,7 @@ This document defines what SceneStateTracker is intended to do, what outcomes co
 
 ## Vision
 
-SceneStateTracker is a SillyTavern extension that keeps an up-to-date, structured representation of the current scene for one active character within an ongoing chat. It turns the latest chat turn pair into deterministic scene metadata that downstream features can trust instead of relying on loosely inferred free text.
+SceneStateTracker is a SillyTavern extension that keeps an up-to-date, structured representation of the current scene for one active character within an ongoing chat. It turns the latest chat turn pair into LLM-derived scene metadata that is validated, normalized, and safe for downstream features to trust instead of relying on loosely inferred free text.
 
 The extension should make scene continuity easier to maintain during roleplay, automatically adapt the chat background to the inferred location, and provide stable structured input for native SillyTavern image-generation workflows such as ComfyUI. The goal is not to replace chat creativity, but to create a reliable scene-state layer that other tools and UI behaviors can build on.
 
@@ -25,6 +25,7 @@ The extension should make scene continuity easier to maintain during roleplay, a
 - Extract structured scene attributes from each latest user + character turn pair for one active character.
 - Maintain a current scene state object that can be read by extension UI, background logic, and image-generation integrations.
 - Update the visible chat background when the tracked location changes and a mapped background is available.
+- Use an LLM-backed extraction step that prioritizes semantically useful structured scene patches over identical raw outputs across runs.
 - Produce deterministic prompt-ready scene data for native SillyTavern image-generation pipelines without requiring manual rewriting each turn.
 - Merge mutable scene state with stable appearance metadata and optional LoRA tags sourced from the active SillyTavern character card during prompt generation.
 - Normalize generated prompt output into Danbooru-style tags, including NSFW-safe tagging for outfit state, action, and interaction when the scene calls for it.
@@ -36,11 +37,11 @@ The extension should make scene continuity easier to maintain during roleplay, a
 ## Success Metrics (SLOs)
 
 - Scene extraction latency: <= 2 seconds p90 from receipt of the responding character message to persisted scene-state update on a typical local setup.
-- State freshness: 100% of processed turn pairs update the in-memory scene state or emit a structured failure reason.
-- Deterministic output consistency: identical turn-pair inputs produce identical structured scene output in >= 99% of test runs.
+- State freshness: 100% of processed turn pairs update the in-memory scene state or emit a structured extraction, parse, or validation failure reason.
+- Extraction contract reliability: 100% of tested processed turn pairs yield either a schema-valid normalized scene patch or a structured failure result without corrupting prior state.
 - Prompt determinism: identical character-card appearance, LoRA metadata, and scene-state inputs produce identical Danbooru-tag prompt output in >= 99% of test runs.
 - Background update accuracy: >= 90% of validated location changes trigger the intended mapped background in acceptance testing.
-- Recovery behavior: after invalid extraction output or pipeline error, the previous valid scene state remains intact in 100% of tested cases.
+- Recovery behavior: after model-call, parse, validation, or pipeline error, the previous valid scene state remains intact in 100% of tested cases.
 - Changed-lines test coverage: >= 80% on merged work, per methodology.md Section 7.
 
 ---
@@ -49,7 +50,7 @@ The extension should make scene continuity easier to maintain during roleplay, a
 
 - A SillyTavern extension that runs in the client extension environment.
 - Turn-pair analysis based on the latest user message and the immediately following active character response.
-- Structured scene-state extraction for attributes such as outfit, pose, emotion, location, action, interaction, and similar present-state descriptors.
+- LLM-backed structured scene-state extraction for attributes such as outfit, pose, emotion, location, action, interaction, and similar present-state descriptors.
 - State storage and retrieval for the current chat session and active tracked character.
 - Background-selection logic driven by normalized location values and user-configured mappings.
 - Deterministic scene payload generation for native SillyTavern image workflows, including ComfyUI-oriented prompt input.
@@ -77,9 +78,11 @@ The extension should make scene continuity easier to maintain during roleplay, a
 - The extension should prefer native SillyTavern hooks, events, and image-generation interfaces over custom side channels.
 - The initial release targets one active tracked character per chat session to reduce ambiguity in extraction and UI behavior.
 - The mutable scene-state schema intentionally excludes stable appearance and LoRA metadata; those come from the active SillyTavern character card at prompt-generation time.
+- The extraction step is probabilistic because it depends on an LLM, but the post-extraction contract must remain deterministic after parsing, validation, and normalization.
 - The extracted scene state must be resilient to malformed or incomplete model output; the extension cannot assume perfect LLM formatting.
 - Secrets for third-party tools must remain outside committed code per methodology.md Section 8.
 - The extension should fail safely: if extraction fails, it should preserve the previous valid state and surface a reason rather than writing corrupt state.
+- The MVP extraction context remains the latest user + character turn pair rather than a longer transcript window.
 - Host runtime details and exact supported SillyTavern version are not yet pinned in the repository and will need confirmation during implementation.
 - The local SillyTavern reference code at `E:\AI_Tools\SillyTavern` may be inspected for integration research, but no files under that path may be modified without direct human approval.
 
@@ -93,13 +96,13 @@ The extension should make scene continuity easier to maintain during roleplay, a
 | Extension users | Users | Use the extension during chat sessions and provide feedback |
 | AI assistant | Actor | Designs docs, proposes code, and supports implementation |
 | SillyTavern host environment | Platform dependency | Provides extension APIs, chat context, background controls, character-card metadata, and image pipeline hooks |
-| Image workflow integrations (for example ComfyUI via SillyTavern) | External dependency | Consume deterministic scene data for image generation |
+| Image workflow integrations (for example ComfyUI via SillyTavern) | External dependency | Consume deterministic normalized scene data for image generation |
 
 ---
 
 ## Risks (initial)
 
-- **Ambiguous turn content may produce unstable extraction results** -> Mitigation: constrain output schema, normalize values, and preserve prior valid state on parse failure.
+- **Ambiguous turn content may produce unstable extraction results** -> Mitigation: constrain the LLM output schema, normalize values, preserve prior valid state on parse/validation failure, and expose structured failure reasons in logs/UI.
 - **Location names may not map cleanly to backgrounds** -> Mitigation: add normalization rules plus explicit user-managed location-to-background mappings.
 - **SillyTavern API variation across versions may break hooks** -> Mitigation: isolate host integration behind adapters and document minimum supported behavior in design.md.
 - **Users may expect multi-character tracking immediately** -> Mitigation: make the single-character constraint explicit in UI and documentation.
@@ -142,5 +145,6 @@ The extension should make scene continuity easier to maintain during roleplay, a
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2026-03-28 | 1.2 | Reframed scene extraction as LLM-based, schema-validated, and normalized while keeping downstream prompt serialization deterministic | Codex |
 | 2026-03-27 | 1.1 | Added prompt-generation requirements for character-card appearance, LoRA tags, Danbooru normalization, and NSFW tagging | Codex |
 | 2026-03-26 | 1.0 | Initial scope defined for SceneStateTracker | Codex |

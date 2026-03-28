@@ -1,7 +1,7 @@
 # design.md
 
-**Version:** 1.1  
-**Last updated:** 2026-03-27  
+**Version:** 1.2  
+**Last updated:** 2026-03-28  
 **Status:** Living document - updated as architecture evolves  
 **Authority:** Technical decisions source of truth; must align with `scope.md`
 
@@ -45,7 +45,8 @@ Diagram:
               v
 +---------------------------+
 | Extraction Engine         |
-| - schema prompt/input     |
+| - prompt assembly         |
+| - model call              |
 | - parse/validate          |
 | - normalize values        |
 +-------------+-------------+
@@ -78,7 +79,7 @@ Diagram:
 
 Component responsibilities:
 - **Turn Pair Collector**: Watches chat lifecycle and emits the newest analyzable user/character pair for the tracked character.
-- **Extraction Engine**: Produces validated structured scene data from text inputs.
+- **Extraction Engine**: Turns turn-pair text into a validated, normalized scene patch through an LLM-backed provider workflow.
 - **Scene State Store**: Owns the canonical current scene state and protects against invalid overwrites.
 - **Background Adapter**: Maps normalized locations to backgrounds and applies changes only when state meaningfully changes.
 - **Image Payload Adapter**: Combines scene state with stable character-card appearance facts and optional LoRA tags, then emits deterministic Danbooru-style prompt payloads.
@@ -109,9 +110,9 @@ Constraints:
 
 ### 2.1 Core Principles
 
-**1. Deterministic Structured Output**
-- What it means: The same analyzed turn pair should produce the same normalized scene representation whenever possible.
-- How we apply it: Use a fixed schema, canonical field order, normalization tables, and explicit fallback handling.
+**1. Deterministic Normalized Contract After Probabilistic Extraction**
+- What it means: The raw extraction step may vary because it depends on an LLM, but the accepted post-validation scene representation must be stable and canonical.
+- How we apply it: Use a fixed schema, canonical field order, normalization tables, explicit fallback handling, and strict rejection of malformed model output.
 - Example: Location `"bed room"`, `"bedroom"`, and `"the bedroom"` normalize to the same canonical `location.key`.
 
 **2. Preserve Last Known Good State**
@@ -139,15 +140,15 @@ Constraints:
 ### 2.2 Error Handling Strategy
 
 **Error types:**
-- **Operational**: Host API unavailable, image pipeline hook missing, parse failure from extraction output -> Strategy: log warning/error, keep prior valid scene state, surface status in debug UI, continue session.
-- **Validation**: Required fields missing, invalid enum/value shape, non-deterministic payload shape -> Strategy: reject update, record structured reason, preserve last known good state.
+- **Operational**: Host API unavailable, model-call failure, image pipeline hook missing, parse failure from extraction output -> Strategy: log warning/error, keep prior valid scene state, surface status in debug UI, continue session.
+- **Validation**: Required fields missing, invalid enum/value shape, or unsupported payload shape -> Strategy: reject update, record structured reason, preserve last known good state.
 - **Programmer**: Undefined module contract, impossible branch, unexpected null access -> Strategy: fail fast in development, log rich diagnostics, add regression tests before release.
 
 **Error response format:**
 ```json
 {
   "ok": false,
-  "stage": "extraction|validation|background|image-payload",
+  "stage": "model-call|parse|validation|background|image-payload",
   "reason": "human-readable summary",
   "details": {
     "chatId": "optional",
@@ -172,7 +173,7 @@ Constraints:
 - **ERROR**: A committed workflow failed and user-visible behavior was skipped. Example: background adapter threw while applying a mapped background.
 - **WARN**: Recoverable problem or rejected update. Example: extraction output failed validation, prior state retained.
 - **INFO**: Significant state transition. Example: location changed from `tavern` to `forest_path`.
-- **DEBUG**: Detailed extraction inputs, normalization decisions, card-metadata resolution, and adapter payloads when debug mode is enabled.
+- **DEBUG**: Detailed extraction inputs, normalization decisions, provider diagnostics, card-metadata resolution, and adapter payloads when debug mode is enabled.
 
 **Always log:**
 - Successful state commits with a concise diff summary.
@@ -228,7 +229,7 @@ project-root/
 **Conventions:**
 - Source files use kebab-case to match extension-style modules.
 - One module owns one responsibility; cross-cutting helpers stay in `utils/`.
-- Tests mirror source module names and focus on deterministic behavior.
+- Tests mirror source module names and focus on deterministic normalization, validation, and rejection behavior around probabilistic extraction.
 - Public integration points are imported through `index.js` and adapter modules, not deep-linked ad hoc.
 
 ---
@@ -261,10 +262,30 @@ Purpose: Convert turn pairs into validated scene-state updates.
 
 Responsibilities:
 - [v] Build extraction input from turn pairs.
+- [v] Orchestrate prompt assembly, provider invocation, parsing, validation, and normalization.
 - [v] Validate and normalize extracted data.
 - [v] Decide whether to commit, reject, or partially merge state changes.
 - [x] Call DOM APIs directly.
 - [x] Depend on raw host event payload shapes outside adapter contracts.
+
+**Extraction provider contract:**
+
+Purpose: Isolate model invocation from the extraction engine so the first implementation can target host-backed generation while leaving room for later providers.
+
+Contract:
+```js
+extract(turnPair, context) => (
+  { ok: true, patch, raw, diagnostics } |
+  { ok: false, stage, reason, details }
+)
+```
+
+Rules:
+- `turnPair` is the latest user + character exchange only.
+- `context` may include `chatId`, `characterId`, and `updateId`.
+- `patch` may contain only project scene fields: `location`, `emotion`, `pose`, `action`, `interaction`, `outfit`, and `summary`.
+- `raw` and prompt/response diagnostics are debug-only and must not be retained by default.
+- The first provider should be host-first and prefer SillyTavern/native generation capabilities when available.
 
 **State Store Layer:**
 
@@ -304,9 +325,9 @@ Responsibilities:
 
 **Unit Tests:**
 - Purpose: Prove deterministic normalization, state merging, schema validation, and diff generation.
-- Scope: One pure module or function at a time.
+- Scope: One pure module or function at a time, especially prompt orchestration, parsing, validation, and normalization.
 - Mocking: Mock host adapters and timestamps where needed.
-- Coverage target: >= 80% on changed lines per methodology.md Section 7, with higher focus on extraction/normalization paths.
+- Coverage target: >= 80% on changed lines per methodology.md Section 7, with higher focus on provider orchestration, parse/validation failures, and normalization paths.
 - Run: `node --test` and `node --test --experimental-test-coverage`
 
 **Integration Tests:**
@@ -380,6 +401,7 @@ Responsibilities:
 **Local storage:**
 - Use the minimum necessary persisted fields.
 - Avoid writing raw extraction prompts/responses unless the user explicitly enables debug retention.
+- Treat model responses as untrusted input until parse and schema validation succeed.
 
 ---
 
@@ -451,7 +473,7 @@ Responsibilities:
 
 **Key metrics:**
 - Turn pairs processed per session.
-- Extraction success vs. rejection count.
+- Extraction success vs. rejection count, broken down by `model-call`, `parse`, and `validation`.
 - State commit count and no-op count.
 - Background update success/failure count.
 - Image payload generation success/failure count.
@@ -584,6 +606,22 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 - [v] Cleaner support for NSFW prompts through explicit canonical tags.
 - [!] Requires careful tag normalization and card-field parsing.
 
+### 8.6 ADR-006: Use LLM-Backed Extraction with Deterministic Post-Processing
+
+**Date:** 2026-03-28  
+**Status:** Accepted
+
+**Context:**
+Purely deterministic extraction rules are too brittle for the variety of roleplay phrasing the extension needs to handle. The project still needs stable downstream behavior for scene state, debugging, and image payload generation.
+
+**Decision:**
+Use an LLM-backed extraction provider to infer scene patches from the latest turn pair, then parse, validate, normalize, and commit only schema-conforming output. Treat extraction as probabilistic, but keep normalization, state protection, and prompt serialization deterministic.
+
+**Consequences:**
+- [v] Better semantic coverage for varied scene descriptions.
+- [v] Clearer contract between probabilistic inference and deterministic system behavior.
+- [!] The extraction path now depends on provider availability, parse robustness, and safe failure handling.
+
 ---
 
 ## 9. Coding Standards
@@ -679,6 +717,7 @@ Prompt generation should emit deterministic Danbooru-style tags in stable order,
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2026-03-28 | 1.2 | Reframed extraction as LLM-backed with deterministic post-processing, added provider contract, and expanded failure-stage guidance | Codex |
 | 2026-03-27 | 1.1 | Added appearance/LoRA prompt-source rules, Danbooru-tag prompt design, NSFW action/interaction guidance, and initial Node test-runner selection | Codex |
 | 2026-03-26 | 1.0 | Initial technical design for SceneStateTracker | Codex |
 
