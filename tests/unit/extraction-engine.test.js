@@ -98,14 +98,50 @@ test('extraction engine accepts a partial outfit object from the provider and no
     });
 
     const result = await engine.extract(createTurnPair({
-        userMessage: 'Get on your knees.',
-        characterMessage: 'Abby kneels in front of Chris in the living room.',
+        userMessage: 'Get on your knees and keep your pink tank top and denim shorts on.',
+        characterMessage: 'Abby kneels in front of Chris in the living room, her pink tank top and denim shorts still on.',
     }));
 
     assert.equal(result.ok, true);
     assert.deepEqual(result.patch.outfit, {
         primary: 'pink_tank_top',
         details: ['denim_shorts'],
+    });
+});
+
+test('extraction engine prunes unsupported outfit details that are not evidenced in the latest turn pair', async () => {
+    const engine = createExtractionEngine({
+        logger: createLoggerStub(),
+        provider: {
+            async extract() {
+                return {
+                    ok: true,
+                    rawText: JSON.stringify({
+                        location: 'Chris\'s house',
+                        emotion: 'Needy and protesting',
+                        pose: 'Kneeling on floor in front of Chris after being stopped mid-blowjob',
+                        action: 'Wiping saliva from chin with trembling hands, looking up at him with pleading eyes',
+                        interaction: 'Abby protests softly as Chris stops her blowjob and helps her stand',
+                        outfit: {
+                            primary: 'Pink hair in loose waves past shoulders',
+                            details: 'Lightweight cotton tank top (pale pink), short denim shorts, bare feet on floor',
+                        },
+                        summary: 'Abby kneels before Chris after being interrupted mid-blowjob.',
+                    }),
+                };
+            },
+        },
+    });
+
+    const result = await engine.extract(createTurnPair({
+        userMessage: 'Wait. Stop for a second.',
+        characterMessage: 'Abby whimpers and wipes her chin, looking up at Chris as he helps her stand.',
+    }));
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.patch.outfit, {
+        primary: '',
+        details: [],
     });
 });
 

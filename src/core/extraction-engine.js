@@ -20,6 +20,123 @@ const EXTRACTION_RESPONSE_SCHEMA = {
     },
 };
 
+const EXPLICIT_OUTFIT_EVIDENCE_MAP = new Map([
+    ['nude', ['nude', 'naked', 'fully naked', 'completely naked']],
+    ['topless', ['topless', 'bare breasts', 'bare chest', 'shirt off', 'robe open']],
+    ['bottomless', ['bottomless', 'pantless', 'no pants', 'without panties', 'shorts down', 'pants down']],
+    ['open_clothes', ['open clothes', 'open shirt', 'open robe', 'parted clothing', 'robe open', 'shirt open']],
+    ['lingerie', ['lingerie', 'underwear', 'bra', 'panties', 'bra and panties']],
+]);
+
+const OUTFIT_EVIDENCE_KEYWORDS = [
+    'robe',
+    'dress',
+    'shirt',
+    'skirt',
+    'shorts',
+    'jeans',
+    'pants',
+    'panties',
+    'underwear',
+    'lingerie',
+    'bra',
+    'stockings',
+    'heels',
+    'boots',
+    'gloves',
+    'tank top',
+    'top',
+    'jacket',
+    'coat',
+    'sweater',
+    'hoodie',
+    'uniform',
+    'barefoot',
+    'bare feet',
+];
+
+function normalizeEvidenceText(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsEvidencePhrase(text, phrase) {
+    const normalizedPhrase = normalizeEvidenceText(phrase);
+    if (!normalizedPhrase) {
+        return false;
+    }
+
+    return new RegExp(`(^|\\s)${escapeRegExp(normalizedPhrase)}(?=\\s|$)`, 'i').test(text);
+}
+
+function toEvidenceParts(outfitValue) {
+    if (typeof outfitValue === 'string') {
+        return outfitValue
+            .split(/[,;]|\band\b/gi)
+            .map((part) => part.trim())
+            .filter(Boolean);
+    }
+
+    if (outfitValue && typeof outfitValue === 'object' && !Array.isArray(outfitValue)) {
+        return [
+            outfitValue.primary,
+            ...(Array.isArray(outfitValue.details)
+                ? outfitValue.details
+                : typeof outfitValue.details === 'string'
+                    ? outfitValue.details.split(/[,;]|\band\b/gi)
+                    : []),
+        ]
+            .map((part) => String(part || '').trim())
+            .filter(Boolean);
+    }
+
+    return [];
+}
+
+function hasOutfitEvidence(part, normalizedTurnText) {
+    const normalizedPart = normalizeEvidenceText(part);
+    if (!normalizedPart) {
+        return false;
+    }
+
+    for (const [key, phrases] of EXPLICIT_OUTFIT_EVIDENCE_MAP.entries()) {
+        if (normalizedPart.includes(key) || phrases.some((phrase) => normalizedPart.includes(normalizeEvidenceText(phrase)))) {
+            return phrases.some((phrase) => containsEvidencePhrase(normalizedTurnText, phrase));
+        }
+    }
+
+    return OUTFIT_EVIDENCE_KEYWORDS.some((keyword) => {
+        const normalizedKeyword = normalizeEvidenceText(keyword);
+        return normalizedPart.includes(normalizedKeyword) && containsEvidencePhrase(normalizedTurnText, normalizedKeyword);
+    });
+}
+
+function applyEvidenceGuards(payload, turnPair) {
+    const nextPayload = {
+        ...payload,
+    };
+    const normalizedTurnText = normalizeEvidenceText(`${turnPair.userMessage || ''}\n${turnPair.characterMessage || ''}`);
+
+    const outfitParts = toEvidenceParts(payload.outfit);
+    if (outfitParts.length > 0) {
+        const supportedOutfitParts = outfitParts.filter((part) => hasOutfitEvidence(part, normalizedTurnText));
+        if (supportedOutfitParts.length === 0) {
+            nextPayload.outfit = '';
+        } else {
+            nextPayload.outfit = supportedOutfitParts.join(', ');
+        }
+    }
+
+    return nextPayload;
+}
+
 function buildExtractionPrompt(turnPair) {
     return [
         'You extract structured scene state from exactly one user message and one character reply.',
@@ -148,7 +265,8 @@ export function createExtractionEngine({ logger, provider }) {
                 };
             }
 
-            const extractionValidation = validateExtractionPayload(parsedResult.payload);
+            const guardedPayload = applyEvidenceGuards(parsedResult.payload, turnPair);
+            const extractionValidation = validateExtractionPayload(guardedPayload);
             if (!extractionValidation.ok) {
                 logger.warn('extract-scene-patch-validation-failed', {
                     stage: 'validation',
@@ -165,7 +283,7 @@ export function createExtractionEngine({ logger, provider }) {
 
             const normalizedPatch = normalizeScenePatch({
                 ...createEmptyScenePatch(),
-                ...parsedResult.payload,
+                ...guardedPayload,
             });
             const validation = validateScenePatch(normalizedPatch);
 
