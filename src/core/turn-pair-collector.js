@@ -15,7 +15,9 @@ export function createTurnPairCollector({
         inFlightTurnPairId = turnPair.id;
 
         try {
-            const extractionResult = await extractionEngine.extract(turnPair);
+            const extractionResult = await extractionEngine.extract(turnPair, {
+                trigger: triggerDetails.trigger,
+            });
             if (!extractionResult.ok) {
                 sceneStateStore.rejectUpdate(extractionResult);
                 return extractionResult;
@@ -27,6 +29,14 @@ export function createTurnPairCollector({
                 userMessageId: turnPair.userMessageId,
                 characterMessageId: turnPair.characterMessageId,
             });
+
+            if (!commitResult.ok) {
+                logger.warn('scene-patch-commit-failed', {
+                    stage: 'commit',
+                    reason: commitResult.reason,
+                    turnPairId: turnPair.id,
+                });
+            }
 
             if (commitResult.ok && !commitResult.noop) {
                 backgroundAdapter.sync(sceneStateStore.getSnapshot());

@@ -18,6 +18,7 @@ function createCollectorHarness({
     turnPairsByMessageId,
     activeCharacter = '',
     extractDelayMs = 0,
+    extractionResultsByTurnPairId = {},
 } = {}) {
     const logger = createLoggerStub();
     const extractedTurnPairIds = [];
@@ -46,6 +47,10 @@ function createCollectorHarness({
 
                 if (extractDelayMs > 0) {
                     await new Promise((resolve) => setTimeout(resolve, extractDelayMs));
+                }
+
+                if (extractionResultsByTurnPairId[turnPair.id]) {
+                    return extractionResultsByTurnPairId[turnPair.id];
                 }
 
                 return {
@@ -199,4 +204,47 @@ test('collector reset clears dedupe state when the active chat changes', async (
     assert.equal(nextResult.ok, true);
     assert.equal(store.getSnapshot().metrics.commits, 1);
     assert.equal(store.getSnapshot().metrics.noops, 1);
+});
+
+test('collector preserves the last valid scene when a later extraction is rejected', async () => {
+    const harness = createCollectorHarness({
+        turnPairsByMessageId: {
+            1: {
+                id: 'chat-1:0:1',
+                chatId: 'chat-1',
+                userMessageId: 0,
+                characterMessageId: 1,
+                userMessage: 'Hi',
+                characterMessage: 'First reply',
+            },
+            3: {
+                id: 'chat-1:2:3',
+                chatId: 'chat-1',
+                userMessageId: 2,
+                characterMessageId: 3,
+                userMessage: 'Again',
+                characterMessage: 'Broken reply',
+            },
+        },
+        extractionResultsByTurnPairId: {
+            'chat-1:2:3': {
+                ok: false,
+                stage: 'parse',
+                reason: 'invalid-json',
+            },
+        },
+    });
+
+    const firstResult = await harness.collector.handleCharacterMessageRendered(1);
+    const secondResult = await harness.collector.handleCharacterMessageRendered(3);
+    const snapshot = harness.store.getSnapshot();
+
+    assert.equal(firstResult.ok, true);
+    assert.equal(secondResult.ok, false);
+    assert.equal(secondResult.stage, 'parse');
+    assert.equal(snapshot.currentScene.summary, 'First reply');
+    assert.equal(snapshot.metrics.commits, 1);
+    assert.equal(snapshot.metrics.rejections, 1);
+    assert.deepEqual(harness.syncedSnapshots, ['First reply']);
+    assert.deepEqual(harness.publishedSnapshots, ['First reply']);
 });

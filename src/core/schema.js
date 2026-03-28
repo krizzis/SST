@@ -55,6 +55,23 @@ function validateLabeledValue(name, value) {
     return { ok: true };
 }
 
+function validateFlexibleLabeledValue(name, value) {
+    if (typeof value === 'string') {
+        return value.trim().length > 0
+            ? { ok: true }
+            : { ok: false, reason: `${name}-must-be-a-non-empty-string-or-object` };
+    }
+
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { ok: false, reason: `${name}-must-be-a-non-empty-string-or-object` };
+    }
+
+    const candidates = [value.label, value.key, value.value].filter((entry) => typeof entry === 'string');
+    return candidates.some((entry) => entry.trim().length > 0)
+        ? { ok: true }
+        : { ok: false, reason: `${name}-must-include-a-string-key-label-or-value` };
+}
+
 function validateOutfit(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return { ok: false, reason: 'outfit-must-be-an-object' };
@@ -70,6 +87,66 @@ function validateOutfit(value) {
 
     if (value.details.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)) {
         return { ok: false, reason: 'outfit.details-must-contain-non-empty-strings' };
+    }
+
+    return { ok: true };
+}
+
+function validateFlexibleOutfit(value) {
+    if (typeof value === 'string') {
+        return { ok: true };
+    }
+
+    return validateOutfit(value);
+}
+
+export function validateExtractionPayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return { ok: false, reason: 'payload-must-be-an-object' };
+    }
+
+    if (!hasOnlyAllowedKeys(payload)) {
+        return { ok: false, reason: 'payload-contains-unknown-top-level-keys' };
+    }
+
+    for (const key of REQUIRED_TOP_LEVEL_KEYS) {
+        if (!(key in payload)) {
+            return { ok: false, reason: `missing-${key}` };
+        }
+    }
+
+    const locationValidation = validateFlexibleLabeledValue('location', payload.location);
+    if (!locationValidation.ok) {
+        return locationValidation;
+    }
+
+    const emotionValidation = validateFlexibleLabeledValue('emotion', payload.emotion);
+    if (!emotionValidation.ok) {
+        return emotionValidation;
+    }
+
+    const poseValidation = validateFlexibleLabeledValue('pose', payload.pose);
+    if (!poseValidation.ok) {
+        return poseValidation;
+    }
+
+    const actionValidation = validateFlexibleLabeledValue('action', payload.action);
+    if (!actionValidation.ok) {
+        return actionValidation;
+    }
+
+    const interactionValidation = validateFlexibleLabeledValue('interaction', payload.interaction);
+    if (!interactionValidation.ok) {
+        return interactionValidation;
+    }
+
+    const outfitValidation = validateFlexibleOutfit(payload.outfit);
+    if (!outfitValidation.ok) {
+        return outfitValidation;
+    }
+
+    if (typeof payload.summary !== 'string') {
+        return { ok: false, reason: 'summary-must-be-a-string' };
     }
 
     return { ok: true };

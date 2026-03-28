@@ -25,7 +25,7 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
 
 ## T-004 - [feature] Implement LLM-backed extraction engine and validated scene patch flow
 - Owner: Human operator + AI assistant
-- Status: [ ] 0% | Dates: planned start 2026-04-01, expected by 2026-04-04
+- Status: [~] 70% | Dates: started 2026-03-28, expected by 2026-04-04, last touched 2026-03-28
 - Scope: scope.md Goals, Success Metrics (SLOs)
 - Design: design.md Section 1.2, Section 2.1, Section 2.2, Section 4.2, Section 8.2
 - Acceptance criteria:
@@ -35,9 +35,19 @@ This document tracks all implementation tasks for SceneStateTracker, along with 
   - Processing latency for representative local test cases meets the `<= 2 seconds p90` target from scope.md
   - Logs distinguish model-call, parse, validation, and commit-stage failures
   - Tests cover valid extraction, malformed JSON or shape handling, missing-field validation failures, rejected patch behavior, and NSFW-tag-relevant normalized scene fields
-- Evidence: Not started in this session; queued as the next implementation slice after T-003 validation close-out
+- Evidence:
+  - `index.js` now wires a host-first provider built around SillyTavern's exported `generateQuietPrompt(...)` into `src/core/extraction-engine.js`
+  - `src/adapters/sillytavern-extraction-provider.js` isolates the model-call boundary and converts unavailable/throwing host calls into structured `model-call` failures
+  - `src/core/extraction-engine.js` now builds a deterministic prompt, parses raw provider output, validates the extraction payload before normalization, and returns structured `model-call`, `parse`, or `validation` failures
+  - `src/core/schema.js` now validates flexible extraction payloads separately from the canonical normalized patch contract so missing fields are rejected before commit
+  - `src/core/turn-pair-collector.js` now passes trigger context into extraction and logs explicit commit-stage failures
+  - `tests/unit/extraction-engine.test.js` covers valid extraction, malformed JSON, missing-field validation rejection, and provider `model-call` failure
+  - `tests/unit/sillytavern-extraction-provider.test.js` covers unavailable host helpers, success wrapping, and thrown host errors
+  - `tests/integration/turn-pair-collector.test.js` now proves a later extraction rejection preserves the prior committed scene and avoids downstream side effects
+  - `node --test` -> 27/27 passing
+  - `node --test --experimental-test-coverage` -> 27/27 passing, 90.82% lines / 73.73% branches / 88.16% functions overall; extraction-engine lines 84.02%, provider lines 100.00%
 - Dependencies: T-002, T-003
-- Notes: The extraction provider is intentionally probabilistic, but its accepted post-validation contract must remain deterministic after normalization
+- Notes: The extraction provider is intentionally probabilistic, but its accepted post-validation contract must remain deterministic after normalization. Remaining work is concentrated in live SillyTavern validation of `generateQuietPrompt(...)` behavior plus a representative latency check against the real host path.
 
 ---
 

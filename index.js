@@ -8,6 +8,7 @@ import {
     chat_metadata,
     eventSource,
     event_types,
+    generateQuietPrompt,
     getCurrentChatId,
     saveSettingsDebounced,
     this_chid,
@@ -16,6 +17,7 @@ import {
 import { createBackgroundAdapter } from './src/adapters/background-adapter.js';
 import { createImagePayloadAdapter } from './src/adapters/image-payload-adapter.js';
 import { createSillyTavernChatAdapter } from './src/adapters/sillytavern-chat.js';
+import { createSillyTavernExtractionProvider } from './src/adapters/sillytavern-extraction-provider.js';
 import { createExtractionEngine } from './src/core/extraction-engine.js';
 import { createSceneStateStore } from './src/core/scene-state-store.js';
 import { createTurnPairCollector } from './src/core/turn-pair-collector.js';
@@ -122,7 +124,13 @@ jQuery(async () => {
         getChatMetadata: () => chat_metadata,
         getCurrentChatId,
     });
-    const extractionEngine = createExtractionEngine({ logger });
+    const extractionProvider = createSillyTavernExtractionProvider({
+        generateQuietPrompt,
+    });
+    const extractionEngine = createExtractionEngine({
+        logger,
+        provider: extractionProvider,
+    });
     const backgroundAdapter = createBackgroundAdapter({ logger });
     const imagePayloadAdapter = createImagePayloadAdapter({ logger });
 
